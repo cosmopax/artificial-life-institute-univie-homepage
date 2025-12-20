@@ -1,0 +1,6 @@
+section,title,subtitle,body,bullets,cta_text,cta_href
+hero,Artificial Life Institute,University of Vienna,"We investigate lifelike dynamics, synthetic ecologies, and the principles that let complex systems adapt and persist.\\nOur work connects computation, biology, robotics, and philosophy to build systems that feel alive.",,"Explore research",#research
+about,About the Institute,,"The Artificial Life Institute at the University of Vienna advances theory and experimentation across scales, from protocells to collectives.\\nWe build bridges between disciplines and cultivate a rigorous, creative research culture.",,,
+research,Research Focus,,"We design, simulate, and observe systems where life-like behavior emerges. Our core themes:","Origins of life and open-ended evolution|Artificial chemistries and morphogenesis|Embodied collectives and swarm intelligence|Synthetic ecosystems and digital ecologies",,
+projects,Projects & Platforms,,"We run long-horizon projects that blend computation, wet lab exploration, and public-facing engagement:","Autonomous protocell platforms|Open-source simulation toolkit|ALife seminar series|Citizen-science evolver",,
+contact,Contact,,"Start a collaboration, join our events, or discuss research directions.","patrick.schimpl@univie.ac.at",Email us,mailto:patrick.schimpl@univie.ac.at
