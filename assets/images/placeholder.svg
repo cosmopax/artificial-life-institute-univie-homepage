@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder image</title>
+  <desc id="desc">Replace with institute photography.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7a101f" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#111111" stop-opacity="0.15" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)" />
+  <rect x="80" y="80" width="1040" height="640" fill="none" stroke="#7a101f" stroke-width="6" stroke-dasharray="18 12" />
+  <text x="600" y="410" text-anchor="middle" font-family="'Work Sans', Arial, sans-serif" font-size="38" fill="#4c0913" letter-spacing="3">IMAGE SLOT</text>
+</svg>

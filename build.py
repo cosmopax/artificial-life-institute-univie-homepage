@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import html
+import shutil
 from pathlib import Path
 from typing import Iterable
 
@@ -11,6 +12,8 @@ CONTENT_PATH = BASE_DIR / "content" / "content.csv"
 SITE_DIR = BASE_DIR / "site"
 CSS_DIR = SITE_DIR / "assets" / "css"
 JS_DIR = SITE_DIR / "assets" / "js"
+IMAGE_SRC_DIR = BASE_DIR / "assets" / "images"
+IMAGE_SITE_DIR = SITE_DIR / "assets" / "images"
 
 SECTION_ORDER = ["hero", "about", "research", "projects", "contact"]
 
@@ -56,6 +59,38 @@ def _render_contact_list(items: Iterable[str]) -> str:
     return "<ul>\n" + "\n".join(rendered) + "\n</ul>"
 
 
+def _render_image(src: str, alt: str, class_name: str = "image-frame") -> str:
+    image_src = src or "placeholder.svg"
+    safe_src = _escape(image_src)
+    safe_alt = _escape(alt)
+    return (
+        f"<figure class=\"{class_name}\">"
+        f"<img src=\"assets/images/{safe_src}\" alt=\"{safe_alt}\" />"
+        f"</figure>"
+    )
+
+
+def _render_newsletter(data: dict[str, str]) -> str:
+    text = data.get("newsletter_text", "")
+    action = data.get("newsletter_action", "")
+    placeholder = data.get("newsletter_placeholder", "Your email")
+    if not (text or action):
+        return ""
+    note = f"<p class=\"newsletter-text\">{_escape(text)}</p>" if text else ""
+    action_attr = _escape(action) if action else "#"
+    placeholder_attr = _escape(placeholder)
+    return (
+        "<div class=\"newsletter\">"
+        "<h3>Newsletter</h3>"
+        f"{note}"
+        f"<form class=\"newsletter-form\" action=\"{action_attr}\" method=\"post\" target=\"_blank\" rel=\"noopener\">"
+        f"<input type=\"email\" name=\"email\" placeholder=\"{placeholder_attr}\" required />"
+        "<button type=\"submit\" class=\"button\">Subscribe</button>"
+        "</form>"
+        "</div>"
+    )
+
+
 def load_content() -> dict[str, dict[str, str]]:
     if not CONTENT_PATH.exists():
         raise SystemExit(f"Missing content source: {CONTENT_PATH}")
@@ -70,17 +105,53 @@ def load_content() -> dict[str, dict[str, str]]:
     return sections
 
 
+def _copy_images() -> None:
+    if not IMAGE_SRC_DIR.exists():
+        return
+    if IMAGE_SITE_DIR.exists():
+        shutil.rmtree(IMAGE_SITE_DIR)
+    shutil.copytree(IMAGE_SRC_DIR, IMAGE_SITE_DIR)
+
+
+def _render_head(title: str) -> str:
+    return f"""<head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>{title}</title>
+    <meta name=\"description\" content=\"Artificial Life Institute at the University of Vienna\" />
+    <link rel=\"stylesheet\" href=\"assets/css/style.css\" />
+  </head>"""
+
+
+def _render_header(current_page: str, nav_items: Iterable[tuple[str, str, str]]) -> str:
+    nav_links = "\n".join(
+        f"<a href=\"{href}\" class=\"{ 'active' if current_page == key else '' }\">{_escape(label)}</a>"
+        for key, href, label in nav_items
+    )
+    return (
+        "<header class=\"site-header\">"
+        "<a class=\"logo\" href=\"index.html\">ALI</a>"
+        f"<nav class=\"nav\">{nav_links}</nav>"
+        "<a class=\"cta\" href=\"contact.html\">Get in touch</a>"
+        "</header>"
+    )
+
+
+def _render_footer() -> str:
+    return (
+        "<footer class=\"site-footer\">"
+        "<p>Artificial Life Institute · University of Vienna</p>"
+        "<p>https://artificial-life-institute.univie.ac.at</p>"
+        "</footer>"
+    )
+
+
 def build_site() -> None:
     sections = load_content()
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     CSS_DIR.mkdir(parents=True, exist_ok=True)
     JS_DIR.mkdir(parents=True, exist_ok=True)
-
-    nav_links = "\n".join(
-        f"<a href=\"#{name}\">{_escape(sections.get(name, {}).get('title', name.title()))}</a>"
-        for name in SECTION_ORDER
-        if name in sections
-    )
+    _copy_images()
 
     hero = sections.get("hero", {})
     hero_title = _escape(hero.get("title", ""))
@@ -92,56 +163,43 @@ def build_site() -> None:
     if hero_cta_text and hero_cta_href:
         hero_cta = f"<a class=\"button\" href=\"{hero_cta_href}\">{hero_cta_text}</a>"
 
-    def render_section(section_id: str) -> str:
+    nav_items = [("home", "index.html", "Home")]
+    for section_id in SECTION_ORDER:
+        if section_id == "hero":
+            continue
+        if section_id in sections:
+            nav_items.append((section_id, f"{section_id}.html", sections[section_id].get("title", section_id.title())))
+
+    overview_cards = []
+    for section_id in SECTION_ORDER:
+        if section_id in ("hero",):
+            continue
         data = sections.get(section_id, {})
         title = _escape(data.get("title", ""))
-        subtitle = _escape(data.get("subtitle", ""))
-        body = _render_paragraphs(_split_paragraphs(data.get("body", "")))
-        bullets = _split_bullets(data.get("bullets", ""))
-        cta_text = _escape(data.get("cta_text", ""))
-        cta_href = _escape(data.get("cta_href", ""))
-        cta = ""
-        if cta_text and cta_href:
-            cta = f"<a class=\"button ghost\" href=\"{cta_href}\">{cta_text}</a>"
-        if section_id == "contact":
-            bullet_html = _render_contact_list(bullets)
-        else:
-            bullet_html = _render_bullets(bullets)
-
-        subtitle_html = f"<p class=\"subtitle\">{subtitle}</p>" if subtitle else ""
-        return (
-            f"<section id=\"{section_id}\" class=\"panel reveal\">"
-            f"<div class=\"panel-inner\">"
-            f"<h2>{title}</h2>"
-            f"{subtitle_html}"
-            f"{body}"
-            f"{bullet_html}"
-            f"{cta}"
-            f"</div>"
-            f"</section>"
+        teaser = _split_paragraphs(data.get("body", ""))
+        snippet = _escape(teaser[0]) if teaser else ""
+        image_html = _render_image(data.get("image", ""), f"{title} image", "card-image")
+        overview_cards.append(
+            "<a class=\"card\" href=\"{href}\">{image}<div class=\"card-body\"><h3>{title}</h3><p>{snippet}</p></div></a>".format(
+                href=f"{section_id}.html",
+                image=image_html,
+                title=title,
+                snippet=snippet,
+            )
         )
+    overview_html = "\n".join(overview_cards)
 
-    panels = "\n".join(render_section(section_id) for section_id in SECTION_ORDER if section_id != "hero")
+    hero_image = _render_image(hero.get("image", ""), "Institute overview", "hero-image")
 
-    html_doc = f"""<!doctype html>
+    index_doc = f"""<!doctype html>
 <html lang=\"en\">
-  <head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>{hero_title or 'Artificial Life Institute'}</title>
-    <meta name=\"description\" content=\"Artificial Life Institute at the University of Vienna\" />
-    <link rel=\"stylesheet\" href=\"assets/css/style.css\" />
-  </head>
+  {_render_head(hero_title or 'Artificial Life Institute')}
   <body>
     <div class=\"grain\"></div>
-    <header class=\"site-header\">
-      <div class=\"logo\">ALI</div>
-      <nav class=\"nav\">{nav_links}</nav>
-      <a class=\"cta\" href=\"#contact\">Get in touch</a>
-    </header>
+    {_render_header('home', nav_items)}
 
     <main>
-      <section id=\"hero\" class=\"hero\">
+      <section class=\"hero\">
         <div class=\"hero-inner\">
           <div class=\"hero-copy\">
             <p class=\"eyebrow\">Artificial Life Institute</p>
@@ -151,6 +209,7 @@ def build_site() -> None:
             <div class=\"hero-actions\">{hero_cta}</div>
           </div>
           <div class=\"hero-card\">
+            {hero_image}
             <h3>Dynamic systems, grounded experiments</h3>
             <p>We prototype lifelike behaviors in simulation and in the lab, translating emergent insights into robust scientific instruments.</p>
             <div class=\"hero-metrics\">
@@ -162,20 +221,83 @@ def build_site() -> None:
         </div>
         <div class=\"hero-swoosh\"></div>
       </section>
-      {panels}
+
+      <section class=\"overview reveal\">
+        <div class=\"overview-inner\">
+          <h2>Explore the institute</h2>
+          <div class=\"card-grid\">{overview_html}</div>
+        </div>
+      </section>
     </main>
 
-    <footer class=\"site-footer\">
-      <p>Artificial Life Institute · University of Vienna</p>
-      <p>https://artificial-life-institute.univie.ac.at</p>
-    </footer>
-
+    {_render_footer()}
     <script src=\"assets/js/main.js\"></script>
   </body>
 </html>
 """
 
-    (SITE_DIR / "index.html").write_text(html_doc, encoding="utf-8")
+    (SITE_DIR / "index.html").write_text(index_doc, encoding="utf-8")
+
+    for section_id in SECTION_ORDER:
+        if section_id == "hero":
+            continue
+        data = sections.get(section_id, {})
+        title = _escape(data.get("title", ""))
+        subtitle = _escape(data.get("subtitle", ""))
+        body = _render_paragraphs(_split_paragraphs(data.get("body", "")))
+        bullets = _split_bullets(data.get("bullets", ""))
+        cta_text = _escape(data.get("cta_text", ""))
+        cta_href = _escape(data.get("cta_href", ""))
+        cta = ""
+        if cta_text and cta_href:
+            cta = f"<a class=\"button ghost\" href=\"{cta_href}\">{cta_text}</a>"
+
+        if section_id == "contact":
+            bullet_html = _render_contact_list(bullets)
+        else:
+            bullet_html = _render_bullets(bullets)
+
+        subtitle_html = f"<p class=\"subtitle\">{subtitle}</p>" if subtitle else ""
+        image_html = _render_image(data.get("image", ""), f"{title} image", "page-image")
+        newsletter_html = _render_newsletter(data) if section_id == "contact" else ""
+
+        page_doc = f"""<!doctype html>
+<html lang=\"en\">
+  {_render_head(title or 'Artificial Life Institute')}
+  <body>
+    <div class=\"grain\"></div>
+    {_render_header(section_id, nav_items)}
+
+    <main>
+      <section class=\"page-hero\">
+        <div class=\"page-hero-inner\">
+          <div class=\"page-copy\">
+            <h1>{title}</h1>
+            {subtitle_html}
+            {body}
+            {cta}
+          </div>
+          {image_html}
+        </div>
+      </section>
+
+      <section class=\"page-content reveal\">
+        <div class=\"page-content-inner\">
+          {bullet_html}
+          {newsletter_html}
+          <a class=\"button ghost\" href=\"index.html\">Back to home</a>
+        </div>
+      </section>
+    </main>
+
+    {_render_footer()}
+    <script src=\"assets/js/main.js\"></script>
+  </body>
+</html>
+"""
+
+        (SITE_DIR / f"{section_id}.html").write_text(page_doc, encoding="utf-8")
+
     (CSS_DIR / "style.css").write_text(_build_css(), encoding="utf-8")
     (JS_DIR / "main.js").write_text(_build_js(), encoding="utf-8")
 
@@ -213,6 +335,12 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+  border-radius: 16px;
 }
 
 .grain {
@@ -255,13 +383,14 @@ a {
 
 .nav a {
   position: relative;
+  padding-bottom: 6px;
 }
 
 .nav a::after {
   content: '';
   position: absolute;
   left: 0;
-  bottom: -6px;
+  bottom: 0;
   width: 100%;
   height: 2px;
   background: var(--bordeaux);
@@ -271,7 +400,8 @@ a {
 }
 
 .nav a:hover::after,
-.nav a:focus::after {
+.nav a:focus::after,
+.nav a.active::after {
   transform: scaleX(1);
 }
 
@@ -342,6 +472,8 @@ main {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   box-shadow: 0 12px 24px var(--shadow);
+  border: none;
+  cursor: pointer;
 }
 
 .button.ghost {
@@ -353,23 +485,29 @@ main {
 .hero-card {
   background: #fff;
   border-radius: var(--radius);
-  padding: 28px;
+  padding: 24px;
   box-shadow: 0 24px 50px var(--shadow);
   border: 1px solid rgba(122, 16, 31, 0.1);
+  display: grid;
+  gap: 16px;
 }
 
 .hero-card h3 {
-  margin-top: 0;
+  margin: 0;
   font-family: 'Cormorant Garamond', serif;
   font-size: 26px;
   color: var(--ink);
+}
+
+.hero-image img {
+  border-radius: 14px;
 }
 
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 8px;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -390,33 +528,115 @@ main {
   z-index: -1;
 }
 
-.panel {
-  padding: 70px 6vw;
+.overview {
+  padding: 40px 6vw 80px;
 }
 
-.panel-inner {
+.overview-inner {
   max-width: var(--max-width);
   margin: 0 auto;
-  background: #fff;
-  border-radius: var(--radius);
-  padding: clamp(26px, 4vw, 46px);
-  box-shadow: 0 20px 40px var(--shadow);
-  border: 1px solid rgba(122, 16, 31, 0.08);
 }
 
-.panel h2 {
+.overview-inner h2 {
   font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(28px, 3.5vw, 42px);
+  font-size: clamp(28px, 3.5vw, 40px);
+  color: var(--bordeaux);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.card {
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid rgba(122, 16, 31, 0.08);
+  box-shadow: 0 16px 32px var(--shadow);
+  overflow: hidden;
+  display: grid;
+  gap: 0;
+}
+
+.card-image img {
+  border-radius: 0;
+}
+
+.card-body {
+  padding: 18px 20px 22px;
+}
+
+.card h3 {
+  margin: 0 0 8px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  color: var(--bordeaux);
+}
+
+.page-hero {
+  padding: 120px 6vw 40px;
+}
+
+.page-hero-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: grid;
+  gap: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: center;
+}
+
+.page-image {
+  align-self: center;
+}
+
+.page-copy h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(36px, 4.5vw, 60px);
   color: var(--bordeaux);
   margin-top: 0;
 }
 
-.panel ul {
+.page-content {
+  padding: 20px 6vw 80px;
+}
+
+.page-content-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: clamp(24px, 4vw, 44px);
+  box-shadow: 0 20px 40px var(--shadow);
+  border: 1px solid rgba(122, 16, 31, 0.08);
+  display: grid;
+  gap: 20px;
+}
+
+.page-content-inner ul {
   padding-left: 18px;
 }
 
-.panel li {
-  margin: 8px 0;
+.newsletter {
+  border-top: 1px solid rgba(122, 16, 31, 0.15);
+  padding-top: 16px;
+}
+
+.newsletter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.newsletter-form input {
+  flex: 1 1 220px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 17, 17, 0.2);
+  font-size: 14px;
 }
 
 .site-footer {
