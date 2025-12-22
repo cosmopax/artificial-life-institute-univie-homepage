@@ -19,6 +19,7 @@ CSS_DIR = ASSETS_DIR / "css"
 JS_DIR = ASSETS_DIR / "js"
 IMG_DIR = ASSETS_DIR / "img"
 BLOG_DIR = CONTENT_DIR / "blog"
+MEDIA_DIR = CONTENT_DIR / "media"
 
 SITE_JSON = CONTENT_DIR / "site.json"
 PAGES_CSV = CONTENT_DIR / "pages.csv"
@@ -63,9 +64,12 @@ def _read_site_config() -> dict[str, str]:
     return {
         "site_name": "Artificial Life Institute",
         "site_tagline": "",
+        "meta_description": "Artificial Life Institute at the University of Vienna",
+        "contact_blurb": "",
         "domain": "",
         "newsletter_mode": "local",
         "newsletter_provider_url": "",
+        "layout_variant": "standard",
         "footer_note": "",
         "address": "",
     }
@@ -214,13 +218,13 @@ def _render_links(links: list[dict[str, str]]) -> str:
     return "<div class=\"tag-list\">" + "".join(items) + "</div>"
 
 
-def _render_head(title: str, css_href: str) -> str:
+def _render_head(title: str, css_href: str, description: str) -> str:
     return f"""
 <head>
   <meta charset=\"utf-8\" />
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>{_escape(title)}</title>
-  <meta name=\"description\" content=\"Artificial Life Institute at the University of Vienna\" />
+  <meta name=\"description\" content=\"{_escape(description)}\" />
   <link rel=\"stylesheet\" href=\"{_escape(css_href)}\" />
 </head>
 """
@@ -305,6 +309,19 @@ def _render_section(section: dict[str, str], current_path: Path, pages: dict[str
 """
 
 
+def _render_linkhub_links(links: list[dict[str, str]]) -> str:
+    if not links:
+        return ""
+    items = []
+    for link in links:
+        label = _escape(link.get("label", ""))
+        url = _escape(link.get("url", ""))
+        kind = (link.get("kind") or "").strip()
+        class_name = "linkhub-link placeholder" if kind == "placeholder" else "linkhub-link"
+        items.append(f"<a class=\"{class_name}\" href=\"{url}\" rel=\"noopener\">{label}</a>")
+    return "<div class=\"linkhub-links\">" + "".join(items) + "</div>"
+
+
 def _render_home_overview(pages: dict[str, dict[str, object]], current_path: Path) -> str:
     cards = []
     for slug in NAV_SLUGS:
@@ -355,7 +372,7 @@ def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]])
     body_html = _render_paragraphs(post.get("body", ""))
     doc = f"""<!doctype html>
 <html lang=\"en\">
-{_render_head(post.get('title', ''), css_href)}
+{_render_head(post.get('title', ''), css_href, _read_site_config().get('meta_description', ''))}
 <body data-newsletter-mode=\"{_escape(_read_site_config().get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(_read_site_config().get('newsletter_provider_url', ''))}\">
   <div class=\"page-shell\">
     {header}
@@ -649,6 +666,73 @@ img {
 .card:hover {
   transform: translateY(-6px);
   box-shadow: 0 20px 40px var(--shadow);
+}
+
+.linkhub {
+  padding: 120px 6vw 80px;
+}
+
+.linkhub-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+.linkhub-links {
+  display: grid;
+  gap: 14px;
+}
+
+.linkhub-link {
+  display: block;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+  box-shadow: 0 16px 30px var(--shadow);
+}
+
+.linkhub-link.placeholder {
+  opacity: 0.7;
+}
+
+.profile-section {
+  padding: 60px 6vw 80px;
+}
+
+.profile-grid {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.profile-card {
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  padding: 18px;
+  box-shadow: 0 16px 30px var(--shadow);
+}
+
+.outputs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.outputs-list li {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .page-hero {
@@ -950,6 +1034,13 @@ def _write_site_assets() -> None:
     (JS_DIR / "main.js").write_text(_build_js(), encoding="utf-8")
     for name, label in PLACEHOLDER_IMAGES.items():
         (IMG_DIR / name).write_text(_build_placeholder_svg(label), encoding="utf-8")
+    if MEDIA_DIR.exists():
+        for path in MEDIA_DIR.rglob("*"):
+            if path.is_dir():
+                continue
+            target = IMG_DIR / path.relative_to(MEDIA_DIR)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, target)
 
 
 def _write_subscribe_php() -> None:
@@ -1003,6 +1094,10 @@ def build_site() -> None:
     site = _read_site_config()
     links = _read_links()
     posts = _read_blog_posts()
+    meta_description = site.get("meta_description", "")
+    layout_variant = (site.get("layout_variant") or "standard").strip().lower()
+    if layout_variant not in {"standard", "linkhub", "profile"}:
+        layout_variant = "standard"
 
     if SITE_DIR.exists():
         shutil.rmtree(SITE_DIR)
@@ -1056,13 +1151,60 @@ def build_site() -> None:
         </div>
       </section>"""
 
-        doc = f"""<!doctype html>
-<html lang=\"en\">
-{_render_head(page['title'], css_href)}
-<body data-newsletter-mode=\"{_escape(site.get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(site.get('newsletter_provider_url', ''))}\">
-  <div class=\"page-shell\">
-    {header}
-    <main>
+        if slug == "":
+            if layout_variant == "linkhub":
+                homepage_body = f"""
+      <section class=\"linkhub\">
+        <div class=\"linkhub-inner\">
+          <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+          <h1>{_escape(hero_heading)}</h1>
+          <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+          {_render_paragraphs(site.get('contact_blurb', ''))}
+          {_render_linkhub_links(links)}
+          {newsletter_html}
+        </div>
+      </section>
+"""
+            elif layout_variant == "profile":
+                homepage_body = f"""
+      <section class=\"hero\">
+        <div class=\"hero-orbit\"></div>
+        <div class=\"hero-inner\">
+          <div>
+            <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+            <h1>{_escape(hero_heading)}</h1>
+            <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+            {hero_body}
+            <div class=\"hero-actions\">{hero_cta}</div>
+          </div>
+          <div class=\"hero-art\">
+            <figure class=\"image-frame\"><img src=\"{_escape(hero_image_src)}\" alt=\"{_escape(hero_heading)} image\" /></figure>
+            <h3>Institute profile</h3>
+            <p>{_escape(site.get('contact_blurb', ''))}</p>
+          </div>
+        </div>
+      </section>
+      <section class=\"profile-section\">
+        <div class=\"profile-grid\">
+          <div class=\"profile-card\"><h3>Core questions</h3><p>Placeholder for the institute's core research questions.</p></div>
+          <div class=\"profile-card\"><h3>Methods</h3><p>Placeholder for modeling, experimentation, and field integration.</p></div>
+          <div class=\"profile-card\"><h3>Community</h3><p>Placeholder for seminars, visitors, and collaborations.</p></div>
+        </div>
+      </section>
+      <section class=\"profile-section\">
+        <div class=\"content-block reveal\">
+          <h2>Selected outputs</h2>
+          <ul class=\"outputs-list\">
+            <li>Placeholder output: paper, dataset, or public demonstration.</li>
+            <li>Placeholder output: workshop, symposium, or lecture series.</li>
+            <li>Placeholder output: open-source tool or platform.</li>
+          </ul>
+          {newsletter_html}
+        </div>
+      </section>
+"""
+            else:
+                homepage_body = f"""
       <section class=\"hero\">
         <div class=\"hero-orbit\"></div>
         <div class=\"hero-inner\">
@@ -1088,6 +1230,44 @@ def build_site() -> None:
       {overview_html}
       {sections_html}
       {page_body_html}
+"""
+        else:
+            homepage_body = f"""
+      <section class=\"hero\">
+        <div class=\"hero-orbit\"></div>
+        <div class=\"hero-inner\">
+          <div>
+            <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+            <h1>{_escape(hero_heading)}</h1>
+            <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+            {hero_body}
+            <div class=\"hero-actions\">{hero_cta}</div>
+          </div>
+          <div class=\"hero-art\">
+            <figure class=\"image-frame\"><img src=\"{_escape(hero_image_src)}\" alt=\"{_escape(hero_heading)} image\" /></figure>
+            <h3>Dynamic systems, grounded experiments</h3>
+            <p>Placeholder for a concise, compelling institute statement.</p>
+            <div class=\"hero-metrics\">
+              <div><span>12+</span>Active research threads</div>
+              <div><span>4</span>Cross-faculty labs</div>
+              <div><span>20</span>Years of ALife history</div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {overview_html}
+      {sections_html}
+      {page_body_html}
+"""
+
+        doc = f"""<!doctype html>
+<html lang=\"en\">
+{_render_head(page['title'], css_href, meta_description)}
+<body data-newsletter-mode=\"{_escape(site.get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(site.get('newsletter_provider_url', ''))}\">
+  <div class=\"page-shell\">
+    {header}
+    <main>
+      {homepage_body}
     </main>
     {footer}
   </div>

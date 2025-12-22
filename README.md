@@ -20,5 +20,10 @@ python3 tools/build.py
 
 Deployment targets `/Users/cosmopax/WebspaceMount/artificiat27/html` and quarantines existing files under `__quarantine__/YYYYmmdd-HHMMSS/` before copying the new `site/` output.
 
+## How to add images
+1. Drop source images into `content/media/` (keep file names stable).
+2. Reference the image filename in `content/pages.csv` (column `hero_image`).
+3. Run `python3 tools/build.py` to copy images into `site/assets/img/`.
+
 ## Newsletter
 The newsletter form posts to `subscribe.php` (deployed at webroot) which appends signups to `data/newsletter_signups.csv`. The `data/` directory is protected by `.htaccess`.

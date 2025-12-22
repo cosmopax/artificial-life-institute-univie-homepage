@@ -1,0 +1,6 @@
+Title: What we build
+Date: 2025-12-22
+Body:
+Our work focuses on constructing experimental systems that make lifelike dynamics measurable and reproducible. We build computational models, embodied agents, and synthetic ecologies to test how adaptation and novelty arise from simple interactions.
+
+The institute develops shared infrastructure: open-source simulation tools, experimental protocols, and methodological frameworks that help researchers compare results across scales. We aim to bridge theoretical insights with practical systems that can be interrogated in the lab and in the field.

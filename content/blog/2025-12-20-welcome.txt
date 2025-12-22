@@ -1,6 +1,6 @@
 Title: Welcome to the Artificial Life Institute
 Date: 2025-12-20
 Body:
-This placeholder post marks the launch of the Artificial Life Institute at the University of Vienna. Use this space for director notes, lab highlights, and research announcements.
+We are pleased to share the first public draft of the Artificial Life Institute webspace at the University of Vienna. This blog will host short updates on research directions, events, and community initiatives.
 
-Add future posts as plain text files in this folder using the same Title/Date/Body format.
+Over the coming months we will publish highlights from ongoing projects and share opportunities for collaboration, visiting scholars, and student researchers.

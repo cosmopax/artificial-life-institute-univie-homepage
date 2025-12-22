@@ -1,9 +1,12 @@
 {
   "site_name": "Artificial Life Institute",
-  "site_tagline": "Exploring lifelike dynamics, synthetic ecologies, and the systems that let complexity endure.",
+  "site_tagline": "Researching lifelike dynamics, synthetic ecologies, and adaptive systems at the University of Vienna.",
+  "meta_description": "The Artificial Life Institute at the University of Vienna studies lifelike dynamics, synthetic ecologies, and adaptive systems across computation, biology, and philosophy.",
+  "contact_blurb": "We welcome collaborations, visiting scholars, and student researchers interested in artificial life, complex systems, and emergent behavior.",
   "domain": "https://artificial-life-institute.univie.ac.at",
   "newsletter_mode": "local",
   "newsletter_provider_url": "",
+  "layout_variant": "standard",
   "footer_note": "University of Vienna · Faculty of Computer Science",
-  "address": "Alsergrund Campus · Placeholder address for institute location"
+  "address": "Währinger Straße 29 · 1090 Vienna · Austria"
 }
