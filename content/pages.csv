@@ -1,0 +1,15 @@
+page_slug,page_title,section_id,heading,body,cta_text,cta_url,hero_image,order
+/,Home,hero,Artificial Life Institute,"We prototype lifelike behavior across computation, biology, robotics, and philosophy.\n\nThis is a placeholder introduction for the University of Vienna Artificial Life Institute.",Explore research,research,placeholder-hero.svg,1
+/,Home,overview,Institute at a glance,"Short placeholder summary for the institute mission, labs, and collaborations.",Meet the team,about,placeholder-studio.svg,2
+/,Home,highlights,Highlights,"Placeholder for key achievements, flagship projects, and current calls for collaboration.",View projects,projects,placeholder-lab.svg,3
+about,About,hero,About the Institute,"Placeholder for the institute story, milestones, and research culture.",Meet the team,contact,placeholder-studio.svg,1
+about,About,leadership,Leadership & People,"Placeholder for director, faculty, staff, and associated labs.",See contact,contact,placeholder-portrait.svg,2
+research,Research,hero,Research Focus,"Placeholder for thematic research directions and open questions.",Download research brief,#,placeholder-lab.svg,1
+research,Research,programs,Programs & Methods,"Placeholder for methods, instrumentation, and experimental platforms.",View projects,projects,placeholder-grid.svg,2
+projects,Projects,hero,Projects & Platforms,"Placeholder for flagship initiatives, grants, and collaborative platforms.",Request collaboration,contact,placeholder-grid.svg,1
+projects,Projects,portfolio,Portfolio,"Placeholder list of project summaries, timelines, and partners.",See blog,blog,placeholder-lab.svg,2
+contact,Contact,hero,Contact,"Placeholder for contact details, visit information, and collaboration invitations.",Email the institute,mailto:patrick.schimpl@univie.ac.at,placeholder-portrait.svg,1
+contact,Contact,visit,Visit & Collaborate,"Placeholder for visiting scholar process, seminar schedule, and collaboration channels.",Download visit guide,#,placeholder-studio.svg,2
+blog,Blog,hero,Institute Blog,"Dispatches, announcements, and field notes from the Artificial Life Institute.",Subscribe to updates,#newsletter,placeholder-hero.svg,1
+privacy,Privacy,hero,Privacy Policy,"EU/Austria-style privacy policy placeholder. Replace with official text before launch.",Contact data protection,mailto:patrick.schimpl@univie.ac.at,placeholder-grid.svg,1
+imprint,Imprint,hero,Imprint,"EU/Austria-style imprint placeholder. Replace with official institute details before launch.",Legal contact,mailto:patrick.schimpl@univie.ac.at,placeholder-grid.svg,1

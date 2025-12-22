@@ -1,0 +1,6 @@
+Title: Welcome to the Artificial Life Institute
+Date: 2025-12-20
+Body:
+This placeholder post marks the launch of the Artificial Life Institute at the University of Vienna. Use this space for director notes, lab highlights, and research announcements.
+
+Add future posts as plain text files in this folder using the same Title/Date/Body format.

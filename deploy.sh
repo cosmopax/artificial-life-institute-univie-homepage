@@ -15,7 +15,7 @@ if [[ ! -d "$WEBROOT" ]]; then
 fi
 
 if [[ ! -d "$SITE_DIR" ]]; then
-  echo "Missing site output. Run ./build.py first." >&2
+  echo "Missing site output. Run python3 tools/build.py first." >&2
   exit 1
 fi
 
@@ -34,7 +34,19 @@ for item in "$WEBROOT"/*; do
 done
 shopt -u dotglob nullglob
 
-rsync -av "$SITE_DIR/" "$WEBROOT/"
+if command -v rsync >/dev/null 2>&1; then
+  rsync -av "$SITE_DIR/" "$WEBROOT/"
+else
+  cp -a "$SITE_DIR/." "$WEBROOT/"
+fi
+
+mkdir -p "$WEBROOT/data"
+echo "Require all denied" > "$WEBROOT/data/.htaccess"
+
+if [[ ! -f "$WEBROOT/subscribe.php" ]]; then
+  echo "Missing subscribe.php after deploy." >&2
+  exit 1
+fi
 
 echo "Deploy check (HTTP status):"
 curl -s -o /dev/null -w "%{http_code}\n" https://artificial-life-institute.univie.ac.at

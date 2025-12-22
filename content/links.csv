@@ -1,0 +1,8 @@
+label,url,kind,order
+GitHub,https://github.com/cosmopax,primary,1
+Email,mailto:patrick.schimpl@univie.ac.at,primary,2
+EU Peptides,https://eu-peptides.org,primary,3
+ORCID,https://orcid.org/0000-0000-0000-0000,placeholder,4
+Google Scholar,https://scholar.google.com/,placeholder,5
+LinkedIn,https://www.linkedin.com/,placeholder,6
+Mastodon,https://mastodon.social/,placeholder,7
