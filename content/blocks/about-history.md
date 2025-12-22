@@ -1,0 +1,1 @@
+We study the principles that make complex systems resilient, creative, and capable of generating novelty. Our work bridges laboratory experimentation, computational modeling, and philosophical analysis.

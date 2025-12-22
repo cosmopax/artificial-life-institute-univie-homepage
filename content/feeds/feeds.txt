@@ -1,0 +1,2 @@
+# Add RSS or Atom feed URLs, one per line.
+# https://example.org/feed.xml

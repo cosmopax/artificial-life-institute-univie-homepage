@@ -20,9 +20,11 @@ JS_DIR = ASSETS_DIR / "js"
 IMG_DIR = ASSETS_DIR / "img"
 BLOG_DIR = CONTENT_DIR / "blog"
 MEDIA_DIR = CONTENT_DIR / "media"
+BLOCKS_DIR = CONTENT_DIR / "blocks"
+DIGESTS_DIR = CONTENT_DIR / "digests"
 
 SITE_JSON = CONTENT_DIR / "site.json"
-PAGES_CSV = CONTENT_DIR / "pages.csv"
+CONTROL_CSV = CONTENT_DIR / "control.csv"
 LINKS_CSV = CONTENT_DIR / "links.csv"
 
 PLACEHOLDER_IMAGES = {
@@ -33,7 +35,7 @@ PLACEHOLDER_IMAGES = {
     "placeholder-grid.svg": "Project grid placeholder",
 }
 
-NAV_SLUGS = ["", "about", "research", "projects", "blog", "contact"]
+NAV_SLUGS = ["", "about", "research", "projects", "digest", "blog", "contact"]
 
 
 def _escape(text: str) -> str:
@@ -58,6 +60,76 @@ def _render_paragraphs(text: str) -> str:
     return "\n".join(f"<p>{_escape(p)}</p>" for p in _split_paragraphs(text))
 
 
+def _render_inline_markdown(text: str) -> str:
+    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+    parts: list[str] = []
+    last = 0
+    for match in pattern.finditer(text or ""):
+        parts.append(_escape((text or "")[last:match.start()]))
+        label = _escape(match.group(1))
+        href = _escape(match.group(2))
+        parts.append(f"<a href=\"{href}\">{label}</a>")
+        last = match.end()
+    parts.append(_escape((text or "")[last:]))
+    return "".join(parts)
+
+
+def _render_markdown(text: str) -> str:
+    cleaned = (text or "").replace("\\r\\n", "\n").strip()
+    if not cleaned:
+        return ""
+    blocks = re.split(r"\n\s*\n", cleaned)
+    rendered: list[str] = []
+    for block in blocks:
+        lines = [line.rstrip() for line in block.splitlines() if line.strip()]
+        if not lines:
+            continue
+        if all(line.lstrip().startswith(("-", "*")) for line in lines):
+            items = [
+                f"<li>{_render_inline_markdown(line.lstrip()[1:].strip())}</li>"
+                for line in lines
+            ]
+            rendered.append("<ul>" + "".join(items) + "</ul>")
+            continue
+        heading_match = re.match(r"^(#{1,3})\s+(.*)$", lines[0])
+        if heading_match:
+            level = len(heading_match.group(1))
+            heading = _render_inline_markdown(heading_match.group(2))
+            tag = "h2" if level == 1 else "h3" if level == 2 else "h4"
+            rendered.append(f"<{tag}>{heading}</{tag}>")
+            rest = [line for line in lines[1:] if line.strip()]
+            if rest:
+                rendered.append(f"<p>{_render_inline_markdown(' '.join(rest))}</p>")
+            continue
+        rendered.append(f"<p>{_render_inline_markdown(' '.join(lines))}</p>")
+    return "\n".join(rendered)
+
+
+def _resolve_block_path(source_md: str) -> Path | None:
+    if not source_md:
+        return None
+    source = Path(source_md)
+    if source.is_absolute():
+        candidate = source
+    elif "/" in source_md or "\\" in source_md:
+        candidate = CONTENT_DIR / source
+    else:
+        candidate = BLOCKS_DIR / source
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(CONTENT_DIR):
+        raise SystemExit(f"Block path outside content directory: {source_md}")
+    return resolved
+
+
+def _read_block(source_md: str) -> str:
+    path = _resolve_block_path(source_md)
+    if not path:
+        return ""
+    if not path.exists():
+        raise SystemExit(f"Missing block file: {path}")
+    return path.read_text(encoding="utf-8")
+
+
 def _read_site_config() -> dict[str, str]:
     if SITE_JSON.exists():
         return json.loads(SITE_JSON.read_text(encoding="utf-8"))
@@ -72,6 +144,7 @@ def _read_site_config() -> dict[str, str]:
         "layout_variant": "standard",
         "footer_note": "",
         "address": "",
+        "show_digest_home": "false",
     }
 
 
@@ -95,26 +168,52 @@ def _rel_link(current_path: Path, target_path: Path) -> str:
     return rel
 
 
-def _read_pages() -> dict[str, dict[str, object]]:
-    if not PAGES_CSV.exists():
-        raise SystemExit(f"Missing pages file: {PAGES_CSV}")
+def _resolve_image_src(raw_image: str, current_path: Path) -> str:
+    image = (raw_image or "").strip()
+    if not image:
+        image = "placeholder-hero.svg"
+    if image.startswith("assets/"):
+        return _rel_link(current_path, Path(image))
+    return _rel_link(current_path, Path("assets/img") / image)
+
+
+def _read_control() -> dict[str, dict[str, object]]:
+    if not CONTROL_CSV.exists():
+        raise SystemExit(f"Missing control file: {CONTROL_CSV}")
     pages: dict[str, dict[str, object]] = {}
-    with PAGES_CSV.open(newline="", encoding="utf-8") as handle:
+    with CONTROL_CSV.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             data = {key: (value or "").strip() for key, value in row.items()}
+            status = (data.get("status") or "").lower()
+            if status in {"draft", "hidden", "archived", "inactive"}:
+                continue
             slug = _normalize_slug(data.get("page_slug", ""))
             order = int(data.get("order") or 0)
             entry = pages.setdefault(
                 slug,
                 {
-                    "title": data.get("page_title") or slug.title() or "Home",
+                    "title": slug.title() or "Home",
                     "sections": [],
+                    "order": 0,
                 },
             )
-            entry["sections"].append({**data, "order": order, "page_slug": slug})
-            if data.get("page_title"):
-                entry["title"] = data["page_title"]
+            kind = (data.get("kind") or "section").lower()
+            if kind in {"page", "meta"}:
+                if data.get("title"):
+                    entry["title"] = data["title"]
+                entry["order"] = order
+                continue
+            section_id = data.get("section") or data.get("id") or ""
+            entry["sections"].append(
+                {
+                    **data,
+                    "order": order,
+                    "page_slug": slug,
+                    "section_id": section_id,
+                    "kind": kind,
+                }
+            )
     for page in pages.values():
         page["sections"] = sorted(page["sections"], key=lambda item: item["order"])
     return pages
@@ -132,6 +231,34 @@ def _read_links() -> list[dict[str, str]]:
                 continue
             items.append(data)
     items.sort(key=lambda item: int(item.get("order") or 0))
+    return items
+
+
+def _read_digests() -> list[dict[str, str]]:
+    if not DIGESTS_DIR.exists():
+        return []
+    index_path = DIGESTS_DIR / "index.json"
+    if not index_path.exists():
+        return []
+    raw = json.loads(index_path.read_text(encoding="utf-8"))
+    items = []
+    for entry in raw.get("digests", []):
+        if not isinstance(entry, dict):
+            continue
+        date = str(entry.get("date", "")).strip()
+        title = str(entry.get("title", "")).strip()
+        slug = str(entry.get("slug", "")).strip()
+        source_md = str(entry.get("source_md", "")).strip()
+        if not (date and slug and source_md):
+            continue
+        items.append(
+            {
+                "date": date,
+                "title": title or f"Digest {date}",
+                "slug": slug,
+                "source_md": source_md,
+            }
+        )
     return items
 
 
@@ -198,6 +325,10 @@ def _render_newsletter_form(site: dict[str, str], current_path: Path) -> str:
   <form class=\"newsletter-form\" data-newsletter-form action=\"{_escape(endpoint)}\" method=\"post\">
     <label class=\"sr-only\" for=\"newsletter-email\">Email</label>
     <input id=\"newsletter-email\" name=\"email\" type=\"email\" placeholder=\"you@example.org\" required />
+    <div class=\"sr-only\" aria-hidden=\"true\">
+      <label for=\"newsletter-company\">Company</label>
+      <input id=\"newsletter-company\" name=\"company\" type=\"text\" tabindex=\"-1\" autocomplete=\"off\" />
+    </div>
     <button class=\"button\" type=\"submit\">Subscribe</button>
     <p class=\"form-status\" aria-live=\"polite\"></p>
   </form>
@@ -282,17 +413,26 @@ def _render_footer(site: dict[str, str], pages: dict[str, dict[str, object]], cu
 """
 
 
-def _render_section(section: dict[str, str], current_path: Path, pages: dict[str, dict[str, object]]) -> str:
-    heading = _escape(section.get("heading", ""))
-    body = _render_paragraphs(section.get("body", ""))
+def _render_section(
+    section: dict[str, str],
+    current_path: Path,
+    pages: dict[str, dict[str, object]],
+    digests: list[dict[str, str]],
+) -> str:
+    kind = (section.get("kind") or "section").lower()
+    if kind == "contact_form":
+        return _render_contact_form(section, current_path)
+    if kind == "digest_list":
+        return _render_digest_list(section, current_path, digests)
+    heading = _escape(section.get("title", ""))
+    body = _render_markdown(_read_block(section.get("source_md", "")))
     cta_text = _escape(section.get("cta_text", ""))
     raw_cta_url = section.get("cta_url", "")
     cta_url = _resolve_cta_url(raw_cta_url, pages, current_path)
     cta = ""
     if cta_text and cta_url:
         cta = f"<a class=\"button ghost\" href=\"{_escape(cta_url)}\">{cta_text}</a>"
-    image_name = section.get("hero_image", "") or "placeholder-hero.svg"
-    image_src = _rel_link(current_path, Path("assets/img") / image_name)
+    image_src = _resolve_image_src(section.get("hero_image", ""), current_path)
     image = f"<figure class=\"image-frame\"><img src=\"{_escape(image_src)}\" alt=\"{heading} image\" /></figure>"
     section_id = _escape(section.get("section_id", ""))
     return f"""
@@ -320,6 +460,78 @@ def _render_linkhub_links(links: list[dict[str, str]]) -> str:
         class_name = "linkhub-link placeholder" if kind == "placeholder" else "linkhub-link"
         items.append(f"<a class=\"{class_name}\" href=\"{url}\" rel=\"noopener\">{label}</a>")
     return "<div class=\"linkhub-links\">" + "".join(items) + "</div>"
+
+
+def _render_contact_form(section: dict[str, str], current_path: Path) -> str:
+    section_id = _escape(section.get("section_id", "contact-form"))
+    heading = _escape(section.get("title", "Contact"))
+    body = _render_markdown(_read_block(section.get("source_md", "")))
+    endpoint = _rel_link(current_path, Path("contact.php"))
+    return f"""
+<section class=\"content-section contact-section\" id=\"{section_id}\">
+  <div class=\"content-grid\">
+    <div>
+      <h2>{heading}</h2>
+      {body}
+    </div>
+    <div class=\"contact-card\">
+      <form class=\"contact-form\" data-contact-form action=\"{_escape(endpoint)}\" method=\"post\">
+        <div class=\"contact-field\">
+          <label for=\"contact-name\">Name</label>
+          <input id=\"contact-name\" name=\"name\" type=\"text\" required />
+        </div>
+        <div class=\"contact-field\">
+          <label for=\"contact-email\">Email</label>
+          <input id=\"contact-email\" name=\"email\" type=\"email\" required />
+        </div>
+        <div class=\"contact-field\">
+          <label for=\"contact-message\">Message</label>
+          <textarea id=\"contact-message\" name=\"message\" rows=\"5\" required></textarea>
+        </div>
+        <div class=\"contact-field sr-only\" aria-hidden=\"true\">
+          <label for=\"contact-company\">Company</label>
+          <input id=\"contact-company\" name=\"company\" type=\"text\" tabindex=\"-1\" autocomplete=\"off\" />
+        </div>
+        <button class=\"button\" type=\"submit\">Send message</button>
+        <p class=\"form-status\" aria-live=\"polite\"></p>
+      </form>
+    </div>
+  </div>
+</section>
+"""
+
+
+def _render_digest_list(section: dict[str, str], current_path: Path, digests: list[dict[str, str]]) -> str:
+    section_id = _escape(section.get("section_id", "digest"))
+    heading = _escape(section.get("title", "Digest"))
+    intro = _render_markdown(_read_block(section.get("source_md", "")))
+    items = digests[:5]
+    if not items:
+        listing = "<p>No digests yet. Run tools/fetch_digest.py to create the first issue.</p>"
+    else:
+        cards = []
+        for digest in items:
+            target = _rel_link(current_path, Path("digest") / digest["slug"] / "index.html")
+            cards.append(
+                f"""<article class=\"digest-card\">
+  <p class=\"post-date\">{_escape(digest['date'])}</p>
+  <h3><a href=\"{_escape(target)}\">{_escape(digest['title'])}</a></h3>
+</article>"""
+            )
+        listing = "<div class=\"digest-grid\">" + "".join(cards) + "</div>"
+    return f"""
+<section class=\"content-section digest-section\" id=\"{section_id}\">
+  <div class=\"content-grid\">
+    <div>
+      <h2>{heading}</h2>
+      {intro}
+    </div>
+    <div>
+      {listing}
+    </div>
+  </div>
+</section>
+"""
 
 
 def _render_home_overview(pages: dict[str, dict[str, object]], current_path: Path) -> str:
@@ -360,6 +572,67 @@ def _render_blog_index(posts: list[dict[str, str]], current_path: Path) -> str:
             )
         )
     return "<div class=\"post-grid\">" + "".join(cards) + "</div>"
+
+
+def _render_digest_index(digests: list[dict[str, str]], current_path: Path) -> str:
+    if not digests:
+        return "<p>No digests yet. Add feeds and run tools/fetch_digest.py to publish the first issue.</p>"
+    cards = []
+    for digest in digests:
+        target = _rel_link(current_path, Path("digest") / digest["slug"] / "index.html")
+        cards.append(
+            """
+<article class=\"digest-card\">
+  <p class=\"post-date\">{date}</p>
+  <h3><a href=\"{href}\">{title}</a></h3>
+</article>
+""".format(
+                date=_escape(digest.get("date", "")),
+                href=_escape(target),
+                title=_escape(digest.get("title", "")),
+            )
+        )
+    return "<div class=\"digest-grid\">" + "".join(cards) + "</div>"
+
+
+def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, object]], site: dict[str, str], links: list[dict[str, str]]) -> None:
+    slug = digest["slug"]
+    current_path = Path("digest") / slug / "index.html"
+    css_href = _rel_link(current_path, Path("assets/css/style.css"))
+    header = _render_header("digest", pages, current_path)
+    footer = _render_footer(site, pages, current_path, links)
+    back_link = _rel_link(current_path, Path("digest/index.html"))
+    body_html = _render_markdown(_read_block(digest.get("source_md", "")))
+    doc = f"""<!doctype html>
+<html lang=\"en\">
+{_render_head(digest.get('title', ''), css_href, site.get('meta_description', ''))}
+<body data-newsletter-mode=\"{_escape(site.get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(site.get('newsletter_provider_url', ''))}\">
+  <div class=\"page-shell\">
+    {header}
+    <main>
+      <section class=\"page-hero\">
+        <div class=\"page-hero-inner\">
+          <p class=\"eyebrow\">Research Digest</p>
+          <h1>{_escape(digest.get('title', ''))}</h1>
+          <p class=\"post-date\">{_escape(digest.get('date', ''))}</p>
+        </div>
+      </section>
+      <section class=\"page-body\">
+        <div class=\"content-block\">
+          {body_html}
+          <a class=\"button ghost\" href=\"{_escape(back_link)}\">Back to digest</a>
+        </div>
+      </section>
+    </main>
+    {footer}
+  </div>
+  <script src=\"{_escape(_rel_link(current_path, Path('assets/js/main.js')))}\"></script>
+</body>
+</html>
+"""
+    output_path = SITE_DIR / current_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(doc, encoding="utf-8")
 
 
 def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]]) -> None:
@@ -417,6 +690,7 @@ def _build_css() -> str:
   --shadow: rgba(15, 15, 15, 0.18);
   --radius: 20px;
   --max-width: 1120px;
+  --ease: cubic-bezier(0.2, 0.6, 0.3, 1);
 }
 
 * {
@@ -426,9 +700,10 @@ def _build_css() -> str:
 body {
   margin: 0;
   font-family: "Work Sans", "Optima", "Gill Sans", sans-serif;
-  background: radial-gradient(circle at top, #fbf5f2 0%, var(--paper) 45%, var(--fog) 100%);
+  background: radial-gradient(circle at top, #fbf5f2 0%, var(--paper) 40%, var(--fog) 100%),
+    linear-gradient(120deg, rgba(163, 22, 33, 0.05), transparent 40%);
   color: var(--ink);
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 a {
@@ -612,6 +887,7 @@ img {
   font-size: 13px;
   box-shadow: 0 14px 30px var(--shadow);
   cursor: pointer;
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 
 .button.ghost {
@@ -619,6 +895,11 @@ img {
   color: var(--bordeaux);
   border: 1px solid var(--bordeaux);
   box-shadow: none;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px var(--shadow);
 }
 
 .content-section {
@@ -660,11 +941,11 @@ img {
   padding: 18px;
   border: 1px solid var(--line);
   box-shadow: 0 16px 30px var(--shadow);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
 }
 
 .card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-6px) scale(1.01);
   box-shadow: 0 20px 40px var(--shadow);
 }
 
@@ -833,6 +1114,62 @@ img {
   font-size: 14px;
 }
 
+.contact-section .content-grid {
+  align-items: flex-start;
+}
+
+.contact-card {
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 36px var(--shadow);
+  padding: clamp(20px, 3vw, 32px);
+}
+
+.contact-form {
+  display: grid;
+  gap: 14px;
+}
+
+.contact-field {
+  display: grid;
+  gap: 6px;
+}
+
+.contact-field input,
+.contact-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.contact-field textarea {
+  resize: vertical;
+  min-height: 140px;
+}
+
+.digest-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.digest-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 16px 30px var(--shadow);
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+
+.digest-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px var(--shadow);
+}
+
 .form-status {
   font-size: 13px;
   color: var(--bordeaux-dark);
@@ -974,6 +1311,8 @@ function setupNewsletter() {
       status.textContent = 'Please enter a valid email.';
       return;
     }
+    const companyInput = form.querySelector('input[name="company"]');
+    const company = companyInput ? companyInput.value.trim() : '';
     const endpoint = mode === 'local' || !providerUrl ? form.getAttribute('action') : providerUrl;
     if (!endpoint) {
       status.textContent = 'Newsletter endpoint is not configured.';
@@ -984,7 +1323,7 @@ function setupNewsletter() {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ email })
+        body: new URLSearchParams({ email, company })
       });
       const payload = await response.json().catch(() => ({}));
       if (response.ok && payload.ok) {
@@ -999,10 +1338,54 @@ function setupNewsletter() {
   });
 }
 
+function setupContactForm() {
+  const form = document.querySelector('[data-contact-form]');
+  if (!form) return;
+  const status = form.querySelector('.form-status');
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const nameInput = form.querySelector('input[name="name"]');
+    const emailInput = form.querySelector('input[name="email"]');
+    const messageInput = form.querySelector('textarea[name="message"]');
+    const companyInput = form.querySelector('input[name="company"]');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
+    const message = messageInput ? messageInput.value.trim() : '';
+    const company = companyInput ? companyInput.value.trim() : '';
+    if (!name || !email || !message) {
+      status.textContent = 'Please complete all required fields.';
+      return;
+    }
+    const endpoint = form.getAttribute('action');
+    if (!endpoint) {
+      status.textContent = 'Contact endpoint is not configured.';
+      return;
+    }
+    status.textContent = 'Sending...';
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ name, email, message, company })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok && payload.ok) {
+        status.textContent = 'Message sent. Thank you.';
+        form.reset();
+      } else {
+        status.textContent = payload.error || 'Message failed. Please try again.';
+      }
+    } catch (error) {
+      status.textContent = 'Message failed. Please try again.';
+    }
+  });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   revealOnScroll();
   smoothScroll();
   setupNewsletter();
+  setupContactForm();
 });
 """.lstrip()
 
@@ -1047,17 +1430,24 @@ def _write_subscribe_php() -> None:
     php = """<?php
 header('Content-Type: application/json');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-  http_response_code(405);
-  echo json_encode(['ok' => false, 'error' => 'method_not_allowed']);
+function fail($code, $error) {
+  http_response_code($code);
+  echo json_encode(['ok' => false, 'error' => $error]);
   exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  fail(405, 'method_not_allowed');
+}
+
+$honeypot = trim($_POST['company'] ?? '');
+if ($honeypot !== '') {
+  fail(400, 'invalid_request');
 }
 
 $email = trim($_POST['email'] ?? '');
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-  http_response_code(400);
-  echo json_encode(['ok' => false, 'error' => 'invalid_email']);
-  exit;
+  fail(400, 'invalid_email');
 }
 
 $dataDir = __DIR__ . '/data';
@@ -1065,67 +1455,194 @@ if (!is_dir($dataDir)) {
   mkdir($dataDir, 0750, true);
 }
 
-$file = $dataDir . '/newsletter_signups.csv';
-$timestamp = gmdate('c');
-$line = $timestamp . ',' . str_replace(["\n", "\r"], '', $email) . "\n";
+$rateFile = $dataDir . '/ratelimit.json';
+$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+$now = time();
+$window = 3600;
+$limit = 8;
 
+$rateHandle = fopen($rateFile, 'c+');
+if (!$rateHandle) {
+  fail(500, 'storage_unavailable');
+}
+flock($rateHandle, LOCK_EX);
+$contents = stream_get_contents($rateHandle);
+$rateData = $contents ? json_decode($contents, true) : [];
+if (!is_array($rateData)) {
+  $rateData = [];
+}
+$entries = $rateData[$ip] ?? [];
+$entries = array_values(array_filter($entries, function($ts) use ($now, $window) {
+  return $ts >= ($now - $window);
+}));
+if (count($entries) >= $limit) {
+  flock($rateHandle, LOCK_UN);
+  fclose($rateHandle);
+  fail(429, 'rate_limited');
+}
+$entries[] = $now;
+$rateData[$ip] = $entries;
+rewind($rateHandle);
+ftruncate($rateHandle, 0);
+fwrite($rateHandle, json_encode($rateData, JSON_PRETTY_PRINT));
+flock($rateHandle, LOCK_UN);
+fclose($rateHandle);
+
+$file = $dataDir . '/newsletter_signups.csv';
 $handle = fopen($file, 'a');
 if (!$handle) {
-  http_response_code(500);
-  echo json_encode(['ok' => false, 'error' => 'storage_unavailable']);
-  exit;
+  fail(500, 'storage_unavailable');
 }
-
 flock($handle, LOCK_EX);
-fwrite($handle, $line);
+fputcsv($handle, [gmdate('c'), $email, $ip]);
 flock($handle, LOCK_UN);
 fclose($handle);
 
 echo json_encode(['ok' => true]);
 """
     (SITE_DIR / "subscribe.php").write_text(php, encoding="utf-8")
+
+
+def _write_contact_php() -> None:
+    php = """<?php
+header('Content-Type: application/json');
+
+function fail($code, $error) {
+  http_response_code($code);
+  echo json_encode(['ok' => false, 'error' => $error]);
+  exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  fail(405, 'method_not_allowed');
+}
+
+$honeypot = trim($_POST['company'] ?? '');
+if ($honeypot !== '') {
+  fail(400, 'invalid_request');
+}
+
+$name = trim($_POST['name'] ?? '');
+$email = trim($_POST['email'] ?? '');
+$message = trim($_POST['message'] ?? '');
+
+if ($name === '' || $email === '' || $message === '') {
+  fail(400, 'missing_fields');
+}
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+  fail(400, 'invalid_email');
+}
+if (mb_strlen($message) > 4000) {
+  fail(400, 'message_too_long');
+}
+
+$dataDir = __DIR__ . '/data';
+if (!is_dir($dataDir)) {
+  mkdir($dataDir, 0750, true);
+}
+
+$rateFile = $dataDir . '/ratelimit.json';
+$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+$now = time();
+$window = 3600;
+$limit = 6;
+
+$rateHandle = fopen($rateFile, 'c+');
+if (!$rateHandle) {
+  fail(500, 'storage_unavailable');
+}
+flock($rateHandle, LOCK_EX);
+$contents = stream_get_contents($rateHandle);
+$rateData = $contents ? json_decode($contents, true) : [];
+if (!is_array($rateData)) {
+  $rateData = [];
+}
+$entries = $rateData[$ip] ?? [];
+$entries = array_values(array_filter($entries, function($ts) use ($now, $window) {
+  return $ts >= ($now - $window);
+}));
+if (count($entries) >= $limit) {
+  flock($rateHandle, LOCK_UN);
+  fclose($rateHandle);
+  fail(429, 'rate_limited');
+}
+$entries[] = $now;
+$rateData[$ip] = $entries;
+rewind($rateHandle);
+ftruncate($rateHandle, 0);
+fwrite($rateHandle, json_encode($rateData, JSON_PRETTY_PRINT));
+flock($rateHandle, LOCK_UN);
+fclose($rateHandle);
+
+$file = $dataDir . '/contact_messages.csv';
+$handle = fopen($file, 'a');
+if (!$handle) {
+  fail(500, 'storage_unavailable');
+}
+flock($handle, LOCK_EX);
+fputcsv($handle, [gmdate('c'), $name, $email, $message, $ip]);
+flock($handle, LOCK_UN);
+fclose($handle);
+
+echo json_encode(['ok' => true]);
+"""
+    (SITE_DIR / "contact.php").write_text(php, encoding="utf-8")
+
+
+def _write_data_protection() -> None:
     data_dir = SITE_DIR / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    (data_dir / ".htaccess").write_text("Require all denied\n", encoding="utf-8")
+    htaccess = """Require all denied
+<FilesMatch "\\.(csv|json)$">
+  Require all denied
+</FilesMatch>
+"""
+    (data_dir / ".htaccess").write_text(htaccess, encoding="utf-8")
 
 
 def build_site() -> None:
-    pages = _read_pages()
+    pages = _read_control()
     site = _read_site_config()
     links = _read_links()
     posts = _read_blog_posts()
+    digests = _read_digests()
     meta_description = site.get("meta_description", "")
     layout_variant = (site.get("layout_variant") or "standard").strip().lower()
     if layout_variant not in {"standard", "linkhub", "profile"}:
         layout_variant = "standard"
+    show_digest_home = str(site.get("show_digest_home", "")).strip().lower() in {"1", "true", "yes", "on"}
 
     if SITE_DIR.exists():
         shutil.rmtree(SITE_DIR)
     SITE_DIR.mkdir(parents=True, exist_ok=True)
     _write_site_assets()
     _write_subscribe_php()
+    _write_contact_php()
+    _write_data_protection()
 
-    for slug, page in pages.items():
+    for slug, page in sorted(pages.items(), key=lambda item: item[1].get("order", 0)):
         current_path = _page_output_path(slug)
         css_href = _rel_link(current_path, Path("assets/css/style.css"))
         js_href = _rel_link(current_path, Path("assets/js/main.js"))
         header = _render_header(slug, pages, current_path)
         footer = _render_footer(site, pages, current_path, links)
-        sections = page["sections"]
-        hero = sections[0] if sections else {}
-        hero_heading = hero.get("heading") or page["title"]
-        hero_body = _render_paragraphs(hero.get("body", ""))
+        sections = list(page["sections"])
+        if slug == "" and not show_digest_home:
+            sections = [section for section in sections if section.get("kind") != "digest_list"]
+        hero = next((section for section in sections if section.get("kind") == "hero"), sections[0] if sections else {})
+        hero_heading = hero.get("title") or page["title"]
+        hero_body = _render_markdown(_read_block(hero.get("source_md", "")))
         hero_cta_text = _escape(hero.get("cta_text", ""))
         hero_cta_url = _resolve_cta_url(hero.get("cta_url", ""), pages, current_path)
         hero_cta = ""
         if hero_cta_text and hero_cta_url:
             hero_cta = f"<a class=\"button\" href=\"{_escape(hero_cta_url)}\">{hero_cta_text}</a>"
-        hero_image_name = hero.get("hero_image") or "placeholder-hero.svg"
-        hero_image_src = _rel_link(current_path, Path("assets/img") / hero_image_name)
+        hero_image_src = _resolve_image_src(hero.get("hero_image", ""), current_path)
 
+        content_sections = [section for section in sections if section is not hero]
         sections_html = "".join(
-            _render_section(section, current_path, pages)
-            for section in sections[1:]
+            _render_section(section, current_path, pages, digests)
+            for section in content_sections
         )
 
         newsletter_html = ""
@@ -1140,8 +1657,12 @@ def build_site() -> None:
         if slug == "blog":
             blog_index_html = _render_blog_index(posts, current_path)
 
+        digest_index_html = ""
+        if slug == "digest":
+            digest_index_html = _render_digest_index(digests, current_path)
+
         contact_links_html = _render_links(links) if slug == "contact" else ""
-        page_body_inner = "".join([blog_index_html, newsletter_html, contact_links_html]).strip()
+        page_body_inner = "".join([blog_index_html, digest_index_html, newsletter_html, contact_links_html]).strip()
         page_body_html = ""
         if page_body_inner:
             page_body_html = f"""
@@ -1281,6 +1802,9 @@ def build_site() -> None:
 
     for post in posts:
         _render_blog_post(post, pages)
+
+    for digest in digests:
+        _render_digest_page(digest, pages, site, links)
 
 
 if __name__ == "__main__":

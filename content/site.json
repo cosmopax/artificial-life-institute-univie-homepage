@@ -8,5 +8,6 @@
   "newsletter_provider_url": "",
   "layout_variant": "standard",
   "footer_note": "University of Vienna · Faculty of Computer Science",
-  "address": "Währinger Straße 29 · 1090 Vienna · Austria"
+  "address": "Währinger Straße 29 · 1090 Vienna · Austria",
+  "show_digest_home": "false"
 }

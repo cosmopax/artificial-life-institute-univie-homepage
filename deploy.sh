@@ -41,7 +41,12 @@ else
 fi
 
 mkdir -p "$WEBROOT/data"
-echo "Require all denied" > "$WEBROOT/data/.htaccess"
+cat > "$WEBROOT/data/.htaccess" <<'EOF'
+Require all denied
+<FilesMatch "\.(csv|json)$">
+  Require all denied
+</FilesMatch>
+EOF
 
 if [[ ! -f "$WEBROOT/subscribe.php" ]]; then
   echo "Missing subscribe.php after deploy." >&2

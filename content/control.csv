@@ -1,0 +1,31 @@
+id,page_slug,section,order,kind,title,source_md,hero_image,status,cta_text,cta_url
+home-meta,/, ,0,page,Home,, ,published,,
+home-hero,/,hero,1,hero,Artificial Life Institute,home-hero.md,assets/img/placeholder-hero.svg,published,Explore research,research
+home-overview,/,overview,2,section,Research themes,home-overview.md,placeholder-lab.svg,published,View research,research
+home-highlights,/,highlights,3,section,Working together,home-highlights.md,placeholder-studio.svg,published,See projects,projects
+home-digest,/,digest,4,digest_list,Research digest,home-digest.md,,published,,
+about-meta,about, ,0,page,About,, ,published,,
+about-hero,about,hero,1,hero,About the Institute,about-hero.md,placeholder-studio.svg,published,Meet the team,contact
+about-history,about,history,2,section,History & scope,about-history.md,placeholder-grid.svg,published,Explore research,research
+about-community,about,community,3,section,People & culture,about-community.md,placeholder-portrait.svg,published,Contact us,contact
+research-meta,research, ,0,page,Research,, ,published,,
+research-hero,research,hero,1,hero,Research Focus,research-hero.md,placeholder-lab.svg,published,Download research brief,#
+research-themes,research,themes,2,section,Core themes,research-themes.md,placeholder-grid.svg,published,View projects,projects
+research-approach,research,approach,3,section,Methods & infrastructure,research-approach.md,placeholder-studio.svg,published,Meet the team,about
+projects-meta,projects, ,0,page,Projects,, ,published,,
+projects-hero,projects,hero,1,hero,Projects & Platforms,projects-hero.md,placeholder-grid.svg,published,Start a collaboration,contact
+projects-portfolio,projects,portfolio,2,section,Current portfolio,projects-portfolio.md,placeholder-lab.svg,published,See blog,blog
+projects-collaboration,projects,collaboration,3,section,Working with us,projects-collaboration.md,placeholder-portrait.svg,published,Contact the institute,contact
+contact-meta,contact, ,0,page,Contact,, ,published,,
+contact-hero,contact,hero,1,hero,Contact,contact-hero.md,placeholder-portrait.svg,published,Email the institute,mailto:patrick.schimpl@univie.ac.at
+contact-visit,contact,visit,2,section,Visit & collaborate,contact-visit.md,placeholder-studio.svg,published,Download visit guide,#
+contact-form,contact,form,3,contact_form,Send a message,contact-form.md,,published,,
+blog-meta,blog, ,0,page,Blog,, ,published,,
+blog-hero,blog,hero,1,hero,Institute Blog,blog-hero.md,placeholder-hero.svg,published,Subscribe to updates,#newsletter
+digest-meta,digest, ,0,page,Digest,, ,published,,
+digest-hero,digest,hero,1,hero,Research Digest,digest-hero.md,placeholder-hero.svg,published,,
+digest-intro,digest,intro,2,section,How it works,digest-intro.md,placeholder-grid.svg,published,,
+privacy-meta,privacy, ,0,page,Privacy,, ,published,,
+privacy-hero,privacy,hero,1,hero,Privacy Policy,privacy-hero.md,placeholder-grid.svg,published,Contact data protection,mailto:patrick.schimpl@univie.ac.at
+imprint-meta,imprint, ,0,page,Imprint,, ,published,,
+imprint-hero,imprint,hero,1,hero,Imprint,imprint-hero.md,placeholder-grid.svg,published,Legal contact,mailto:patrick.schimpl@univie.ac.at
