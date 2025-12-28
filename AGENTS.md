@@ -7,7 +7,7 @@
 - If this file is updated with links to project docs, read them first.
 
 ## Safety
-- Operate only inside `/Users/cosmopax/Desktop/projx/artificial-life-institute-univie-homepage` and `/Users/cosmopax/WebspaceMount/artificiat27/html`.
+- Operate only inside `/Users/cosmopax/Desktop/projx/academic_webpages/artificial-life-institute-univie-homepage` and `/Users/cosmopax/WebspaceMount/a0402554/artificiat27/html`.
 - Before multi-file edits, take a checkpoint commit: `git add -A && git commit -m "checkpoint: pre-agent-edit"`.
 - Quarantine existing webroot contents before deploy using `deploy.sh`.
 - Do not expose secrets or environment dumps.

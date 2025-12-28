@@ -13,12 +13,17 @@ This repo generates a static site for https://artificial-life-institute.univie.a
 python3 tools/build.py
 ```
 
+Make-like command:
+```bash
+python3 tools/build.py && python3 tools/verify_links.py
+```
+
 ## Deploy
 ```bash
 ./deploy.sh
 ```
 
-Deployment targets `/Users/cosmopax/WebspaceMount/artificiat27/html` and quarantines existing files under `__quarantine__/YYYYmmdd-HHMMSS/` before copying the new `site/` output.
+Deployment targets `/Users/cosmopax/WebspaceMount/a0402554/artificiat27/html` and quarantines existing files under `__quarantine__/YYYYmmdd-HHMMSS/` before copying the new `site/` output.
 
 ## How to add images
 1. Drop source images into `content/media/` (keep file names stable).

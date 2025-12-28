@@ -161,11 +161,30 @@ def _page_output_path(slug: str) -> Path:
     return Path(slug) / "index.html"
 
 
+def _page_link_path(slug: str) -> Path:
+    if slug == "":
+        return Path(".")
+    return Path(slug)
+
+
 def _rel_link(current_path: Path, target_path: Path) -> str:
     current_dir = current_path.parent.as_posix()
     target = target_path.as_posix()
     rel = os.path.relpath(target, start=current_dir)
     return rel
+
+
+def _rel_dir_link(current_path: Path, target_dir: Path) -> str:
+    current_dir = current_path.parent.as_posix() or "."
+    target_dir_str = target_dir.as_posix() or "."
+    rel = os.path.relpath(target_dir_str, start=current_dir)
+    if rel == ".":
+        return "./"
+    return rel.rstrip("/") + "/"
+
+
+def _rel_page_link(current_path: Path, slug: str) -> str:
+    return _rel_dir_link(current_path, _page_link_path(slug))
 
 
 def _resolve_image_src(raw_image: str, current_path: Path) -> str:
@@ -305,7 +324,7 @@ def _resolve_cta_url(raw_url: str, pages: dict[str, dict[str, object]], current_
         return raw_url
     slug = _normalize_slug(raw_url)
     if slug in pages:
-        return _rel_link(current_path, _page_output_path(slug))
+        return _rel_page_link(current_path, slug)
     return raw_url
 
 
@@ -367,13 +386,13 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
         if slug not in pages:
             continue
         title = pages[slug]["title"]
-        href = _rel_link(current_path, _page_output_path(slug))
+        href = _rel_page_link(current_path, slug)
         active = "active" if slug == current_slug else ""
         nav_links.append(f"<a class=\"{active}\" href=\"{_escape(href)}\">{_escape(title)}</a>")
-    cta_href = _rel_link(current_path, _page_output_path("contact")) if "contact" in pages else "#"
+    cta_href = _rel_page_link(current_path, "contact") if "contact" in pages else "#"
     return f"""
 <header class=\"site-header\">
-  <a class=\"logo\" href=\"{_escape(_rel_link(current_path, _page_output_path("")))}\">ALI</a>
+  <a class=\"logo\" href=\"{_escape(_rel_page_link(current_path, ""))}\">ALI</a>
   <nav class=\"nav\">{''.join(nav_links)}</nav>
   <a class=\"cta\" href=\"{_escape(cta_href)}\">Get in touch</a>
 </header>
@@ -384,7 +403,7 @@ def _render_footer(site: dict[str, str], pages: dict[str, dict[str, object]], cu
     footer_links = []
     for slug in ("privacy", "imprint"):
         if slug in pages:
-            href = _rel_link(current_path, _page_output_path(slug))
+            href = _rel_page_link(current_path, slug)
             footer_links.append(f"<a href=\"{_escape(href)}\">{_escape(pages[slug]['title'])}</a>")
     links_html = "".join(footer_links)
     digital_html = _render_links(links)
@@ -511,7 +530,7 @@ def _render_digest_list(section: dict[str, str], current_path: Path, digests: li
     else:
         cards = []
         for digest in items:
-            target = _rel_link(current_path, Path("digest") / digest["slug"] / "index.html")
+            target = _rel_dir_link(current_path, Path("digest") / digest["slug"])
             cards.append(
                 f"""<article class=\"digest-card\">
   <p class=\"post-date\">{_escape(digest['date'])}</p>
@@ -542,7 +561,7 @@ def _render_home_overview(pages: dict[str, dict[str, object]], current_path: Pat
         if slug not in pages:
             continue
         title = pages[slug]["title"]
-        target = _rel_link(current_path, _page_output_path(slug))
+        target = _rel_page_link(current_path, slug)
         cards.append(
             f"<a class=\"card\" href=\"{_escape(target)}\"><h3>{_escape(title)}</h3><p>Placeholder summary for { _escape(title) }.</p></a>"
         )
@@ -554,7 +573,7 @@ def _render_blog_index(posts: list[dict[str, str]], current_path: Path) -> str:
         return "<p>No posts yet. Add a file to content/blog/ to publish the first update.</p>"
     cards = []
     for post in posts:
-        target = _rel_link(current_path, Path("blog") / post["slug"] / "index.html")
+        target = _rel_dir_link(current_path, Path("blog") / post["slug"])
         excerpt = _split_paragraphs(post.get("body", ""))
         teaser = excerpt[0] if excerpt else ""
         cards.append(
@@ -579,7 +598,7 @@ def _render_digest_index(digests: list[dict[str, str]], current_path: Path) -> s
         return "<p>No digests yet. Add feeds and run tools/fetch_digest.py to publish the first issue.</p>"
     cards = []
     for digest in digests:
-        target = _rel_link(current_path, Path("digest") / digest["slug"] / "index.html")
+        target = _rel_dir_link(current_path, Path("digest") / digest["slug"])
         cards.append(
             """
 <article class=\"digest-card\">
@@ -601,7 +620,7 @@ def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, objec
     css_href = _rel_link(current_path, Path("assets/css/style.css"))
     header = _render_header("digest", pages, current_path)
     footer = _render_footer(site, pages, current_path, links)
-    back_link = _rel_link(current_path, Path("digest/index.html"))
+    back_link = _rel_page_link(current_path, "digest")
     body_html = _render_markdown(_read_block(digest.get("source_md", "")))
     doc = f"""<!doctype html>
 <html lang=\"en\">
@@ -641,7 +660,7 @@ def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]])
     css_href = _rel_link(current_path, Path("assets/css/style.css"))
     header = _render_header("blog", pages, current_path)
     footer = _render_footer(_read_site_config(), pages, current_path, _read_links())
-    back_link = _rel_link(current_path, Path("blog/index.html"))
+    back_link = _rel_page_link(current_path, "blog")
     body_html = _render_paragraphs(post.get("body", ""))
     doc = f"""<!doctype html>
 <html lang=\"en\">
@@ -679,14 +698,14 @@ def _build_css() -> str:
     return """
 :root {
   color-scheme: only light;
-  --bordeaux: #6b0f1a;
-  --bordeaux-dark: #3e0a11;
-  --bordeaux-bright: #a31621;
+  --bordeaux: #65141c;
+  --bordeaux-dark: #3a1016;
+  --bordeaux-bright: #92202b;
   --ink: #0f0f0f;
-  --paper: #f7f0ee;
-  --fog: #efe4e0;
+  --paper: #f3f1f0;
+  --fog: #e4e0de;
   --accent: #e0b15a;
-  --line: rgba(107, 15, 26, 0.18);
+  --line: rgba(101, 20, 28, 0.14);
   --shadow: rgba(15, 15, 15, 0.18);
   --radius: 20px;
   --max-width: 1120px;
@@ -700,8 +719,8 @@ def _build_css() -> str:
 body {
   margin: 0;
   font-family: "Work Sans", "Optima", "Gill Sans", sans-serif;
-  background: radial-gradient(circle at top, #fbf5f2 0%, var(--paper) 40%, var(--fog) 100%),
-    linear-gradient(120deg, rgba(163, 22, 33, 0.05), transparent 40%);
+  background: radial-gradient(circle at top, #f6f5f4 0%, var(--paper) 45%, var(--fog) 100%),
+    linear-gradient(120deg, rgba(101, 20, 28, 0.04), transparent 45%);
   color: var(--ink);
   line-height: 1.7;
 }
