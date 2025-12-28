@@ -1665,7 +1665,7 @@ def build_site() -> None:
         )
 
         newsletter_html = ""
-        if slug in {"", "contact"}:
+        if slug in {"", "contact", "digest"}:
             newsletter_html = _render_newsletter_form(site, current_path)
 
         overview_html = ""
