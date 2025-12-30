@@ -562,8 +562,9 @@ def _render_home_overview(pages: dict[str, dict[str, object]], current_path: Pat
             continue
         title = pages[slug]["title"]
         target = _rel_page_link(current_path, slug)
+        extra_class = " wide" if slug == "projects" else ""
         cards.append(
-            f"<a class=\"card\" href=\"{_escape(target)}\"><h3>{_escape(title)}</h3><p>Placeholder summary for { _escape(title) }.</p></a>"
+            f"<a class=\"card{extra_class}\" href=\"{_escape(target)}\"><h3>{_escape(title)}</h3><p>Placeholder summary for { _escape(title) }.</p></a>"
         )
     return "<div class=\"card-grid\">" + "".join(cards) + "</div>"
 
@@ -966,6 +967,10 @@ img {
 .card:hover {
   transform: translateY(-6px) scale(1.01);
   box-shadow: 0 20px 40px var(--shadow);
+}
+
+.card.wide {
+  grid-column: 1 / -1;
 }
 
 .linkhub {

@@ -3,3 +3,4 @@
 2025-12-22T15:30:56Z | agent=codex | tags=[ALI],build,forms,digest | summary=[ALI] Added control.csv + markdown blocks, hardened subscribe/contact PHP, added digest scaffold + UI polish. | tests=python3 tools/build.py; ./deploy.sh (failed: webroot missing); curl -s -o /dev/null -w "%{http_code}" https://artificial-life-institute.univie.ac.at/; curl -s https://artificial-life-institute.univie.ac.at/ | sed -n '1,20p'
 2025-12-28T16:11:59Z | agent=codex | tags=[ALI],nav,tools,dashboard,theme | summary=[ALI] add link verifier, dashboard, dev helper, muted theme | tests=python3 tools/build.py; python3 tools/verify_links.py; python3 tools/dev.py --once
 2025-12-28T22:02:51Z | agent=codex | tags=[ALI],forms,digest | summary=[ALI] add newsletter form to digest page | tests=python3 tools/build.py
+2025-12-30T11:53:51Z | agent=codex | tags=styling,css,build | Made Projects card wide on homepage | tests=verification/verify_projects_card.py
