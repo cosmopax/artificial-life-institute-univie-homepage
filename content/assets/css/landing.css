@@ -1,0 +1,144 @@
+
+:root {
+  --mescia-bg: #0b0b0d;
+  --mescia-text: #e0e0e0;
+  --mescia-accent: #d4a055;
+  --mescia-zone: rgba(212, 160, 85, 0.1);
+  --mescia-zone-hover: rgba(212, 160, 85, 0.3);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--mescia-bg);
+  color: var(--mescia-text);
+  overflow: hidden; /* Canvas covers everything */
+  height: 100vh;
+  width: 100vw;
+}
+
+.mescia-landing {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#mescia-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.mescia-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none; /* Let clicks pass to canvas if needed, or zones handle them */
+}
+
+/* Main Entrance - Centered */
+.main-entrance {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: auto;
+  opacity: 0;
+  animation: fadeIn 2s ease 1s forwards;
+}
+
+.main-entrance h1 {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 4rem;
+  letter-spacing: 0.2em;
+  margin: 0 0 1rem 0;
+  color: var(--mescia-accent);
+  text-transform: uppercase;
+}
+
+.main-entrance p {
+  font-family: "Work Sans", sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 2rem;
+  color: rgba(255,255,255, 0.7);
+}
+
+.enter-button {
+  display: inline-block;
+  padding: 1rem 3rem;
+  border: 1px solid var(--mescia-accent);
+  color: var(--mescia-accent);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.9rem;
+  transition: all 0.4s ease;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+}
+
+.enter-button:hover {
+  background: var(--mescia-accent);
+  color: var(--mescia-bg);
+  box-shadow: 0 0 20px rgba(212, 160, 85, 0.4);
+}
+
+/* Landing Zones - Invisible/Subtle Areas */
+.landing-zones-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.landing-zone {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 200px;
+    height: 200px; /* Arbitrary size, positioned by JS or here */
+    border-radius: 50%;
+    pointer-events: auto;
+    text-decoration: none;
+    transition: all 0.5s ease;
+}
+
+.landing-zone .zone-label {
+    opacity: 0;
+    color: var(--mescia-accent);
+    font-family: "Cormorant Garamond", serif;
+    font-size: 1.5rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    transform: translateY(10px);
+}
+
+.landing-zone:hover {
+    background: radial-gradient(circle, var(--mescia-zone-hover) 0%, transparent 70%);
+    box-shadow: 0 0 30px var(--mescia-zone);
+}
+
+.landing-zone:hover .zone-label {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Positioning zones blindly for now, JS can randomize or fix them */
+.landing-zone:nth-child(1) { top: 20%; left: 20%; }
+.landing-zone:nth-child(2) { top: 20%; right: 20%; }
+.landing-zone:nth-child(3) { bottom: 20%; left: 20%; }
+.landing-zone:nth-child(4) { bottom: 20%; right: 20%; }
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}

@@ -1,0 +1,5 @@
+page_slug,section,title,kind,order,source_md
+,intro,Welcome,hero,1,welcome.md
+research,research_intro,Research,section,1,research.md
+team,team_intro,Team,section,1,team.md
+publications,pubs_intro,Publications,section,1,publications.md
