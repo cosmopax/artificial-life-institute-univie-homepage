@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.vx = (Math.random() - 0.5) * config.speed;
             this.vy = (Math.random() - 0.5) * config.speed;
             this.radius = Math.random() * 2 + 0.8;
-            this.baseColor = `rgba(212, 160, 85, ${Math.random() * 0.5 + 0.12})`;
+            this.baseColor = `rgba(224, 177, 90, ${Math.random() * 0.5 + 0.12})`;
         }
 
         update() {
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.beginPath();
                             ctx.moveTo(node.x, node.y);
                             ctx.lineTo(other.x, other.y);
-                            ctx.strokeStyle = `rgba(212, 160, 85, ${alpha * 0.2})`;
+                            ctx.strokeStyle = `rgba(101, 20, 28, ${alpha * 0.2})`;
                             ctx.stroke();
                         }
                     }

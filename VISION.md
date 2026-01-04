@@ -1,12 +1,12 @@
-# Vision: Mescia Cosmopax Group
+# Vision: Artificial Life Institute
 
 ## Core Theme
-**Living Token, Agential Intelligence, Encultured AI**
+**Synthetic Life, Emergence, and Ethical Futures**
 
 ## Philosophy
-Mescia represents the convergence of value and agency. We are building the substrate for an economy of agents.
+The Artificial Life Institute studies how life-like behavior emerges across biological, computational, and hybrid systems. We archive foundational work, foster interdisciplinary research, and translate complexity for the public.
 
 ## Aesthetic Goals
-- High-end academic
-- Future-facing
-- Clean typography
+- Bordeaux and cream palette
+- Archival, institutional feel
+- Glassmorphism with tactile depth

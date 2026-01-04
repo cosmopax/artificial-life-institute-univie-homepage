@@ -71,7 +71,7 @@ def _render_emphasis(text: str) -> str:
 
 
 def _render_inline_markdown(text: str) -> str:
-    pattern = re.compile(r"[[^]]+]\]\(([^)]+)\)")
+    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
     parts: list[str] = []
     last = 0
     raw = text or ""
@@ -456,7 +456,7 @@ def _render_head(title: str, css_href: str, description: str, extra_css: str = "
 """
 
 
-def _render_header(current_slug: str, pages: dict[str, dict[str, object]], current_path: Path) -> str:
+def _render_header(current_slug: str, pages: dict[str, dict[str, object]], current_path: Path, site: dict[str, object]) -> str:
     nav_links = []
     for slug in NAV_SLUGS:
         if slug not in pages:
@@ -466,9 +466,13 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
         active = "active" if slug == current_slug else ""
         nav_links.append(f"<a class=\"{active}\" href=\"{_escape(href)}\">{_escape(title)}</a>")
     cta_href = _rel_page_link(current_path, "contact") if "contact" in pages else "#"
+
+    # Dynamic Logo
+    logo_text = str(site.get("logo_text") or site.get("site_name") or "ALI")
+
     return f"""
 <header class="site-header">
-  <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">ALI</a>
+  <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">{_escape(logo_text)}</a>
   <nav class="nav">{''.join(nav_links)}</nav>
   <a class="cta" href="{_escape(cta_href)}">Get in touch</a>
 </header>
@@ -733,9 +737,10 @@ def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, objec
 def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]]) -> None:
     slug = post["slug"]
     current_path = Path("blog") / slug / "index.html"
+    site = _read_site_config()
     css_href = _rel_link(current_path, Path("assets/css/style.css"))
-    header = _render_header("blog", pages, current_path)
-    footer = _render_footer(_read_site_config(), pages, current_path, _read_links())
+    header = _render_header("blog", pages, current_path, site)
+    footer = _render_footer(site, pages, current_path, _read_links())
     back_link = _rel_page_link(current_path, "blog")
     body_html = _render_paragraphs(post.get("body", ""))
     doc = f"""<!doctype html>
@@ -1127,6 +1132,226 @@ def _render_mescia_landing(site: dict[str, str], pages: dict[str, dict[str, obje
 """
 
 
+
+
+def _render_swarm_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path) -> str:
+    hero_title = _escape(site.get("site_name", "Swarm"))
+    tagline = _escape(site.get("site_tagline", ""))
+    
+    # Generate content nodes for the swarm layout
+    nodes_html = []
+    
+    # Main content node
+    nodes_html.append(f"""
+    <div class="swarm-node main-node" style="top: 20%; left: 30%; width: 40%;">
+        <h1>{hero_title}</h1>
+        <p class="subtitle">{tagline}</p>
+        <p>{_escape(site.get("contact_blurb", ""))}</p>
+    </div>
+    """)
+    
+    # Add nodes for each page
+    node_positions = [
+        {"top": "10%", "left": "10%"},
+        {"top": "70%", "left": "15%"},
+        {"top": "40%", "left": "70%"},
+        {"top": "75%", "left": "65%"},
+        {"top": "15%", "left": "60%"}
+    ]
+    
+    for i, (slug, page) in enumerate(pages.items()):
+        if slug == "": continue  # Skip home page as it's the main node
+        if i >= len(node_positions): break  # Don't exceed available positions
+        
+        position = node_positions[i]
+        title = _escape(page.get("title", slug.title()))
+        href = _escape(_rel_page_link(current_path, slug))
+        
+        nodes_html.append(f"""
+        <a href="{href}" class="swarm-node page-node" style="top: {position['top']}; left: {position['left']};">
+            <h3>{title}</h3>
+        </a>
+        """)
+    
+    # Add "Live Pulse" section
+    nodes_html.append(f"""
+    <div class="swarm-node pulse-node" style="top: 60%; left: 40%;">
+        <h3>Live Pulse</h3>
+        <div class="pulse-content">
+            <p>Real-time activity feed from agent logs</p>
+            <div class="activity-log">
+                <div class="log-entry">New research thread initiated</div>
+                <div class="log-entry">Data sync completed</div>
+                <div class="log-entry">Model training in progress</div>
+            </div>
+        </div>
+    </div>
+    """)
+    
+    return f"""
+    <section class="swarm-layout">
+        <div class="swarm-canvas">
+            <div class="swarm-grid"></div>
+            {''.join(nodes_html)}
+        </div>
+    </section>
+    """
+
+
+def _render_rhizome_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path) -> str:
+    hero_title = _escape(site.get("site_name", "Rhizome"))
+    tagline = _escape(site.get("site_tagline", ""))
+    
+    # Generate content blocks for the rhizome layout
+    blocks_html = []
+    
+    # Main content block
+    blocks_html.append(f"""
+    <div class="rhizome-block main-block">
+        <h1>{hero_title}</h1>
+        <p class="subtitle">{tagline}</p>
+        <p>{_escape(site.get("contact_blurb", ""))}</p>
+    </div>
+    """)
+    
+    # Add blocks for each page
+    for slug, page in list(pages.items())[:4]:  # Limit to first 4 pages
+        if slug == "": continue  # Skip home page as it's the main block
+        title = _escape(page.get("title", slug.title()))
+        href = _escape(_rel_page_link(current_path, slug))
+        
+        blocks_html.append(f"""
+        <a href="{href}" class="rhizome-block page-block">
+            <h3>{title}</h3>
+        </a>
+        """)
+    
+    # Add "Symbiosis Mode" toggle
+    blocks_html.append(f"""
+    <div class="rhizome-block toggle-block">
+        <h3>Symbiosis Mode</h3>
+        <div class="theme-toggle">
+            <button id="bio-theme-btn" class="theme-btn">Bio</button>
+            <button id="techno-theme-btn" class="theme-btn">Techno</button>
+        </div>
+    </div>
+    """)
+    
+    # Generate SVG connections
+    svg_connections = """
+    <svg class="rhizome-connections" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 200 100 Q 300 50 400 100" stroke="var(--rhizome-accent)" fill="none" stroke-width="2" />
+        <path d="M 200 100 Q 150 200 100 300" stroke="var(--rhizome-accent)" fill="none" stroke-width="2" />
+        <path d="M 200 100 Q 350 250 500 300" stroke="var(--rhizome-accent)" fill="none" stroke-width="2" />
+        <path d="M 100 300 Q 300 350 500 300" stroke="var(--rhizome-accent)" fill="none" stroke-width="2" />
+    </svg>
+    """
+    
+    return f"""
+    <section class="rhizome-layout">
+        <div class="rhizome-container">
+            {svg_connections}
+            <div class="rhizome-grid">
+                {''.join(blocks_html)}
+            </div>
+        </div>
+    </section>
+    """
+
+
+def _render_sentient_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path) -> str:
+    """Render a cybernetic terminal aesthetic layout with terminal-like interface elements."""
+    hero_title = _escape(site.get("site_name", "Sentient System"))
+    tagline = _escape(site.get("site_tagline", ""))
+    
+    # Generate navigation for the terminal interface
+    nav_items = []
+    for slug in ["", "about", "research", "projects", "contact"]:  # Using standard navigation slugs
+        if slug not in pages:
+            continue
+        title = _escape(pages[slug]["title"])
+        href = _escape(_rel_page_link(current_path, slug))
+        active = "active" if slug == "" else ""  # Assuming home page is active
+        nav_items.append(f'<a class="terminal-nav-item {active}" href="{href}">[{title}]</a>')
+    
+    # Generate terminal-style content
+    terminal_content = f"""
+    <div class="terminal-header">
+        <div class="terminal-controls">
+            <span class="control-btn close"></span>
+            <span class="control-btn minimize"></span>
+            <span class="control-btn maximize"></span>
+        </div>
+        <div class="terminal-title">system@sentient:~$ {hero_title}</div>
+    </div>
+    <div class="terminal-body">
+        <div class="terminal-prompt">
+            <span class="prompt-user">user@sentient</span>
+            <span class="prompt-symbol">$</span>
+            <span class="prompt-command">init_session</span>
+        </div>
+        <div class="terminal-output">
+            <div class="terminal-output-line">Initializing sentient system...</div>
+            <div class="terminal-output-line">System status: <span class="status-active">ACTIVE</span></div>
+            <div class="terminal-output-line">Neural pathways: <span class="status-active">ONLINE</span></div>
+            <div class="terminal-output-line">Cognitive modules: <span class="status-active">READY</span></div>
+        </div>
+        
+        <div class="terminal-prompt">
+            <span class="prompt-user">user@sentient</span>
+            <span class="prompt-symbol">$</span>
+            <span class="prompt-command">display_info</span>
+        </div>
+        <div class="terminal-output">
+            <div class="terminal-header-block">
+                <h1 class="terminal-title-main">{hero_title}</h1>
+                <p class="terminal-subtitle">{tagline}</p>
+                <p class="terminal-blurb">{_escape(site.get("contact_blurb", ""))}</p>
+            </div>
+        </div>
+        
+        <div class="terminal-prompt">
+            <span class="prompt-user">user@sentient</span>
+            <span class="prompt-symbol">$</span>
+            <span class="prompt-command">show_modules</span>
+        </div>
+        <div class="terminal-output">
+            <div class="terminal-modules">
+                <div class="terminal-module">
+                    <div class="module-header">[Navigation]</div>
+                    <div class="module-content">
+                        {''.join(nav_items)}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="terminal-prompt">
+            <span class="prompt-user">user@sentient</span>
+            <span class="prompt-symbol">$</span>
+            <span class="prompt-command">show_overview</span>
+        </div>
+        <div class="terminal-output">
+            <div class="terminal-overview">
+                {_render_home_overview(pages, current_path)}
+            </div>
+        </div>
+        
+        <div class="terminal-prompt terminal-prompt-ready">
+            <span class="prompt-user">user@sentient</span>
+            <span class="prompt-symbol">$</span>
+            <span class="prompt-command" id="terminal-cursor">|</span>
+        </div>
+    </div>
+    """
+    
+    return f"""
+    <section class="sentient-layout">
+        <div class="terminal-container">
+            {terminal_content}
+        </div>
+    </section>
+    """
 def _build_placeholder_svg(label: str) -> str:
     safe_label = _escape(label)
     return f"""<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 600 400\" role=\"img\" aria-label=\"{safe_label}\">
@@ -1366,7 +1591,7 @@ def build_site() -> None:
     digests = _read_digests()
     meta_description = site.get("meta_description", "")
     layout_variant = (site.get("layout_variant") or "standard").strip().lower()
-    if layout_variant not in {"standard", "linkhub", "profile", "mescia_landing", "archive"}:
+    if layout_variant not in {"standard", "linkhub", "profile", "mescia_landing", "archive", "swarm", "rhizome", "sentient"}:
         layout_variant = "standard"
     show_digest_home = str(site.get("show_digest_home", "")).strip().lower() in {"1", "true", "yes", "on"}
 
@@ -1385,8 +1610,11 @@ def build_site() -> None:
         extra_css = ""
         if slug == "" and layout_variant == "mescia_landing":
             extra_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/landing.css")))}" />'
+        # Include extra CSS for new layout variants
+        if slug == "" and layout_variant in {"archive", "swarm", "rhizome", "sentient"}:
+            extra_css += f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/extra_layouts.css")))}" />'
 
-        header = _render_header(slug, pages, current_path)
+        header = _render_header(slug, pages, current_path, site)
         footer = _render_footer(site, pages, current_path, links)
         sections = list(page["sections"])
         if slug == "" and not show_digest_home:
@@ -1452,6 +1680,12 @@ def build_site() -> None:
 """
             elif layout_variant == "mescia_landing":
                 homepage_body = _render_mescia_landing(site, pages, current_path)
+            elif layout_variant == "swarm":
+                homepage_body = _render_swarm_layout(site, pages, current_path)
+            elif layout_variant == "rhizome":
+                homepage_body = _render_rhizome_layout(site, pages, current_path)
+            elif layout_variant == "sentient":
+                homepage_body = _render_sentient_layout(site, pages, current_path)
             elif layout_variant == "profile":
                 homepage_body = f"""
       <section class="hero">

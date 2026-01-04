@@ -1,17 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500&display=swap');
 
 :root {
-  --mescia-bg: #0b0b0d;
-  --mescia-text: #e0e0e0;
-  --mescia-accent: #d4a055;
-  --mescia-zone: rgba(212, 160, 85, 0.1);
-  --mescia-zone-hover: rgba(212, 160, 85, 0.3);
+  --ali-bg: #f3f1f0;
+  --ali-paper: #f9f8f7;
+  --ali-text: #1a1a1a;
+  --ali-muted: #4a4a4a;
+  --ali-bordeaux: #65141c;
+  --ali-bordeaux-bright: #92202b;
+  --ali-gold: #e0b15a;
+  --ali-zone: rgba(101, 20, 28, 0.12);
+  --ali-zone-hover: rgba(224, 177, 90, 0.35);
 }
 
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--mescia-bg);
-  color: var(--mescia-text);
+  background: var(--ali-bg);
+  color: var(--ali-text);
   overflow: hidden; /* Canvas covers everything */
   height: 100vh;
   width: 100vw;
@@ -21,6 +26,8 @@ html, body {
   position: relative;
   width: 100vw;
   height: 100vh;
+  background: radial-gradient(circle at top, rgba(101, 20, 28, 0.08), transparent 55%),
+    var(--ali-paper);
 }
 
 #mescia-canvas {
@@ -51,45 +58,45 @@ html, body {
   text-align: center;
   pointer-events: auto;
   opacity: 0;
-  animation: fadeIn 2s ease 1s forwards;
+  animation: fadeIn 2s ease 0.6s forwards;
 }
 
 .main-entrance h1 {
   font-family: "Cormorant Garamond", serif;
-  font-size: 4rem;
-  letter-spacing: 0.2em;
+  font-size: 3.6rem;
+  letter-spacing: 0.18em;
   margin: 0 0 1rem 0;
-  color: var(--mescia-accent);
+  color: var(--ali-bordeaux);
   text-transform: uppercase;
 }
 
 .main-entrance p {
-  font-family: "Work Sans", sans-serif;
-  font-size: 1.2rem;
-  letter-spacing: 0.1em;
+  font-family: "Outfit", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.12em;
   margin-bottom: 2rem;
-  color: rgba(255,255,255, 0.7);
+  color: var(--ali-muted);
 }
 
 .enter-button {
   display: inline-block;
   padding: 1rem 3rem;
-  border: 1px solid var(--mescia-accent);
-  color: var(--mescia-accent);
+  border: 1px solid var(--ali-bordeaux);
+  color: var(--ali-bordeaux);
   text-decoration: none;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  font-size: 0.9rem;
-  transition: all 0.4s ease;
-  background: rgba(0,0,0,0.4);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  font-size: 0.85rem;
+  transition: all 0.35s ease;
+  background: rgba(101, 20, 28, 0.08);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
 }
 
 .enter-button:hover {
-  background: var(--mescia-accent);
-  color: var(--mescia-bg);
-  box-shadow: 0 0 20px rgba(212, 160, 85, 0.4);
+  background: var(--ali-bordeaux);
+  color: var(--ali-paper);
+  box-shadow: 0 0 22px rgba(101, 20, 28, 0.3);
 }
 
 /* Landing Zones - Invisible/Subtle Areas */
@@ -115,9 +122,9 @@ html, body {
 
 .landing-zone .zone-label {
     opacity: 0;
-    color: var(--mescia-accent);
+    color: var(--ali-bordeaux);
     font-family: "Cormorant Garamond", serif;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     transition: opacity 0.4s ease, transform 0.4s ease;
@@ -125,8 +132,8 @@ html, body {
 }
 
 .landing-zone:hover {
-    background: radial-gradient(circle, var(--mescia-zone-hover) 0%, transparent 70%);
-    box-shadow: 0 0 30px var(--mescia-zone);
+    background: radial-gradient(circle, var(--ali-zone-hover) 0%, transparent 70%);
+    box-shadow: 0 0 30px var(--ali-zone);
 }
 
 .landing-zone:hover .zone-label {

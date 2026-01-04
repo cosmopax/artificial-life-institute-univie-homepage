@@ -1,7 +1,7 @@
-# Mescia Cosmopax Group
+# Artificial Life Institute
 
 ## Overview
-Mescia represents the convergence of value and agency. We are building the substrate for an economy of agents.
+The Artificial Life Institute documents and studies the emergence of life-like behavior in synthetic systems at the University of Vienna.
 
 ## Installation
 Dependencies: `python3`
