@@ -9,7 +9,7 @@ import re
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Any
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CONTENT_DIR = BASE_DIR / "content"
@@ -50,7 +50,7 @@ def _slugify(text: str) -> str:
 
 
 def _split_paragraphs(text: str) -> list[str]:
-    normalized = (text or "").replace("\\n", "\n").strip()
+    normalized = (text or "").replace("\n", "\n").strip()
     if not normalized:
         return []
     chunks = re.split(r"\n\s*\n", normalized)
@@ -71,7 +71,7 @@ def _render_emphasis(text: str) -> str:
 
 
 def _render_inline_markdown(text: str) -> str:
-    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+    pattern = re.compile(r"[[^]]+]\]\(([^)]+)\)")
     parts: list[str] = []
     last = 0
     raw = text or ""
@@ -86,7 +86,7 @@ def _render_inline_markdown(text: str) -> str:
 
 
 def _render_markdown(text: str) -> str:
-    cleaned = (text or "").replace("\\r\\n", "\n").strip()
+    cleaned = (text or "").replace("\r\n", "\n").strip()
     if not cleaned:
         return ""
     blocks = re.split(r"\n\s*\n", cleaned)
@@ -141,7 +141,7 @@ def _read_block(source_md: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _read_site_config() -> dict[str, str]:
+def _read_site_config() -> dict[str, Any]:
     if SITE_JSON.exists():
         return json.loads(SITE_JSON.read_text(encoding="utf-8"))
     return {
@@ -409,20 +409,20 @@ def _render_newsletter_form(site: dict[str, str], current_path: Path) -> str:
     else:
         endpoint = provider_url
     return f"""
-<div class=\"newsletter\" id=\"newsletter\">
+<div class="newsletter" id="newsletter">
   <div>
     <h3>Newsletter</h3>
     <p>Subscribe for institute updates, events, and research highlights.</p>
   </div>
-  <form class=\"newsletter-form\" data-newsletter-form action=\"{_escape(endpoint)}\" method=\"post\">
-    <label class=\"sr-only\" for=\"newsletter-email\">Email</label>
-    <input id=\"newsletter-email\" name=\"email\" type=\"email\" placeholder=\"you@example.org\" required />
-    <div class=\"sr-only\" aria-hidden=\"true\">
-      <label for=\"newsletter-company\">Company</label>
-      <input id=\"newsletter-company\" name=\"company\" type=\"text\" tabindex=\"-1\" autocomplete=\"off\" />
+  <form class="newsletter-form" data-newsletter-form action="{_escape(endpoint)}" method="post">
+    <label class="sr-only" for="newsletter-email">Email</label>
+    <input id="newsletter-email" name="email" type="email" placeholder="you@example.org" required />
+    <div class="sr-only" aria-hidden="true">
+      <label for="newsletter-company">Company</label>
+      <input id="newsletter-company" name="company" type="text" tabindex="-1" autocomplete="off" />
     </div>
-    <button class=\"button\" type=\"submit\">Subscribe</button>
-    <p class=\"form-status\" aria-live=\"polite\"></p>
+    <button class="button" type="submit">Subscribe</button>
+    <p class="form-status" aria-live="polite"></p>
   </form>
 </div>
 """
@@ -441,14 +441,17 @@ def _render_links(links: list[dict[str, str]]) -> str:
     return "<div class=\"tag-list\">" + "".join(items) + "</div>"
 
 
-def _render_head(title: str, css_href: str, description: str) -> str:
+def _render_head(title: str, css_href: str, description: str, extra_css: str = "") -> str:
+    extra_css = extra_css.strip()
+    if extra_css:
+        extra_css = "\n  " + extra_css
     return f"""
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{_escape(title)}</title>
-  <meta name=\"description\" content=\"{_escape(description)}\" />
-  <link rel=\"stylesheet\" href=\"{_escape(css_href)}\" />
+  <meta name="description" content="{_escape(description)}" />
+  <link rel="stylesheet" href="{_escape(css_href)}" />{extra_css}
 </head>
 """
 
@@ -464,10 +467,10 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
         nav_links.append(f"<a class=\"{active}\" href=\"{_escape(href)}\">{_escape(title)}</a>")
     cta_href = _rel_page_link(current_path, "contact") if "contact" in pages else "#"
     return f"""
-<header class=\"site-header\">
-  <a class=\"logo\" href=\"{_escape(_rel_page_link(current_path, ""))}\">ALI</a>
-  <nav class=\"nav\">{''.join(nav_links)}</nav>
-  <a class=\"cta\" href=\"{_escape(cta_href)}\">Get in touch</a>
+<header class="site-header">
+  <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">ALI</a>
+  <nav class="nav">{''.join(nav_links)}</nav>
+  <a class="cta" href="{_escape(cta_href)}">Get in touch</a>
 </header>
 """
 
@@ -484,21 +487,21 @@ def _render_footer(site: dict[str, str], pages: dict[str, dict[str, object]], cu
     note = _escape(site.get("footer_note", ""))
     domain = _escape(site.get("domain", ""))
     return f"""
-<footer class=\"site-footer\">
-  <div class=\"footer-grid\">
+<footer class="site-footer">
+  <div class="footer-grid">
     <div>
-      <p class=\"footer-title\">Artificial Life Institute</p>
+      <p class="footer-title">Artificial Life Institute</p>
       <p>{address}</p>
       <p>{note}</p>
-      <p><a href=\"{domain}\">{domain}</a></p>
+      <p><a href="{domain}">{domain}</a></p>
     </div>
     <div>
-      <p class=\"footer-title\">Digital presence</p>
+      <p class="footer-title">Digital presence</p>
       {digital_html}
     </div>
     <div>
-      <p class=\"footer-title\">Legal</p>
-      <div class=\"footer-links\">{links_html}</div>
+      <p class="footer-title">Legal</p>
+      <div class="footer-links">{links_html}</div>
     </div>
   </div>
 </footer>
@@ -528,8 +531,8 @@ def _render_section(
     image = f"<figure class=\"image-frame\"><img src=\"{_escape(image_src)}\" alt=\"{heading} image\" /></figure>"
     section_id = _escape(section.get("section_id", ""))
     return f"""
-<section class=\"content-section\" id=\"{section_id}\">
-  <div class=\"content-grid\">
+<section class="content-section" id="{section_id}">
+  <div class="content-grid">
     <div>
       <h2>{heading}</h2>
       {body}
@@ -560,32 +563,32 @@ def _render_contact_form(section: dict[str, str], current_path: Path) -> str:
     body = _render_markdown(_read_block(section.get("source_md", "")))
     endpoint = _rel_link(current_path, Path("contact.php"))
     return f"""
-<section class=\"content-section contact-section\" id=\"{section_id}\">
-  <div class=\"content-grid\">
+<section class="content-section contact-section" id="{section_id}">
+  <div class="content-grid">
     <div>
       <h2>{heading}</h2>
       {body}
     </div>
-    <div class=\"contact-card\">
-      <form class=\"contact-form\" data-contact-form action=\"{_escape(endpoint)}\" method=\"post\">
-        <div class=\"contact-field\">
-          <label for=\"contact-name\">Name</label>
-          <input id=\"contact-name\" name=\"name\" type=\"text\" required />
+    <div class="contact-card">
+      <form class="contact-form" data-contact-form action="{_escape(endpoint)}" method="post">
+        <div class="contact-field">
+          <label for="contact-name">Name</label>
+          <input id="contact-name" name="name" type="text" required />
         </div>
-        <div class=\"contact-field\">
-          <label for=\"contact-email\">Email</label>
-          <input id=\"contact-email\" name=\"email\" type=\"email\" required />
+        <div class="contact-field">
+          <label for="contact-email">Email</label>
+          <input id="contact-email" name="email" type="email" required />
         </div>
-        <div class=\"contact-field\">
-          <label for=\"contact-message\">Message</label>
-          <textarea id=\"contact-message\" name=\"message\" rows=\"5\" required></textarea>
+        <div class="contact-field">
+          <label for="contact-message">Message</label>
+          <textarea id="contact-message" name="message" rows="5" required></textarea>
         </div>
-        <div class=\"contact-field sr-only\" aria-hidden=\"true\">
-          <label for=\"contact-company\">Company</label>
-          <input id=\"contact-company\" name=\"company\" type=\"text\" tabindex=\"-1\" autocomplete=\"off\" />
+        <div class="contact-field sr-only" aria-hidden="true">
+          <label for="contact-company">Company</label>
+          <input id="contact-company" name="company" type="text" tabindex="-1" autocomplete="off" />
         </div>
-        <button class=\"button\" type=\"submit\">Send message</button>
-        <p class=\"form-status\" aria-live=\"polite\"></p>
+        <button class="button" type="submit">Send message</button>
+        <p class="form-status" aria-live="polite"></p>
       </form>
     </div>
   </div>
@@ -612,8 +615,8 @@ def _render_digest_list(section: dict[str, str], current_path: Path, digests: li
             )
         listing = "<div class=\"digest-grid\">" + "".join(cards) + "</div>"
     return f"""
-<section class=\"content-section digest-section\" id=\"{section_id}\">
-  <div class=\"content-grid\">
+<section class="content-section digest-section" id="{section_id}">
+  <div class="content-grid">
     <div>
       <h2>{heading}</h2>
       {intro}
@@ -651,9 +654,9 @@ def _render_blog_index(posts: list[dict[str, str]], current_path: Path) -> str:
         teaser = excerpt[0] if excerpt else ""
         cards.append(
             """
-<article class=\"post-card\">
-  <p class=\"post-date\">{date}</p>
-  <h3><a href=\"{href}\">{title}</a></h3>
+<article class="post-card">
+  <p class="post-date">{date}</p>
+  <h3><a href="{href}">{title}</a></h3>
   <p>{teaser}</p>
 </article>
 """.format(
@@ -674,9 +677,9 @@ def _render_digest_index(digests: list[dict[str, str]], current_path: Path) -> s
         target = _rel_dir_link(current_path, Path("digest") / digest["slug"])
         cards.append(
             """
-<article class=\"digest-card\">
-  <p class=\"post-date\">{date}</p>
-  <h3><a href=\"{href}\">{title}</a></h3>
+<article class="digest-card">
+  <p class="post-date">{date}</p>
+  <h3><a href="{href}">{title}</a></h3>
 </article>
 """.format(
                 date=_escape(digest.get("date", "")),
@@ -698,27 +701,27 @@ def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, objec
     doc = f"""<!doctype html>
 <html lang=\"en\">
 {_render_head(digest.get('title', ''), css_href, site.get('meta_description', ''))}
-<body data-newsletter-mode=\"{_escape(site.get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(site.get('newsletter_provider_url', ''))}\">
-  <div class=\"page-shell\">
+<body data-newsletter-mode="{_escape(site.get('newsletter_mode', 'local'))}" data-newsletter-url="{_escape(site.get('newsletter_provider_url', ''))}">
+  <div class="page-shell">
     {header}
     <main>
-      <section class=\"page-hero\">
-        <div class=\"page-hero-inner\">
-          <p class=\"eyebrow\">Research Digest</p>
+      <section class="page-hero">
+        <div class="page-hero-inner">
+          <p class="eyebrow">Research Digest</p>
           <h1>{_escape(digest.get('title', ''))}</h1>
-          <p class=\"post-date\">{_escape(digest.get('date', ''))}</p>
+          <p class="post-date">{_escape(digest.get('date', ''))}</p>
         </div>
       </section>
-      <section class=\"page-body\">
-        <div class=\"content-block\">
+      <section class="page-body">
+        <div class="content-block">
           {body_html}
-          <a class=\"button ghost\" href=\"{_escape(back_link)}\">Back to digest</a>
+          <a class="button ghost" href="{_escape(back_link)}">Back to digest</a>
         </div>
       </section>
     </main>
     {footer}
   </div>
-  <script src=\"{_escape(_rel_link(current_path, Path('assets/js/main.js')))}\"></script>
+  <script src="{_escape(_rel_link(current_path, Path('assets/js/main.js')))}"></script>
 </body>
 </html>
 """
@@ -738,27 +741,27 @@ def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]])
     doc = f"""<!doctype html>
 <html lang=\"en\">
 {_render_head(post.get('title', ''), css_href, _read_site_config().get('meta_description', ''))}
-<body data-newsletter-mode=\"{_escape(_read_site_config().get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(_read_site_config().get('newsletter_provider_url', ''))}\">
-  <div class=\"page-shell\">
+<body data-newsletter-mode="{_escape(_read_site_config().get('newsletter_mode', 'local'))}" data-newsletter-url="{_escape(_read_site_config().get('newsletter_provider_url', ''))}">
+  <div class="page-shell">
     {header}
     <main>
-      <section class=\"page-hero\">
-        <div class=\"page-hero-inner\">
-          <p class=\"eyebrow\">Institute Blog</p>
+      <section class="page-hero">
+        <div class="page-hero-inner">
+          <p class="eyebrow">Institute Blog</p>
           <h1>{_escape(post.get('title', ''))}</h1>
-          <p class=\"post-date\">{_escape(post.get('date', ''))}</p>
+          <p class="post-date">{_escape(post.get('date', ''))}</p>
         </div>
       </section>
-      <section class=\"page-body\">
-        <div class=\"content-block\">
+      <section class="page-body">
+        <div class="content-block">
           {body_html}
-          <a class=\"button ghost\" href=\"{_escape(back_link)}\">Back to blog</a>
+          <a class="button ghost" href="{_escape(back_link)}">Back to blog</a>
         </div>
       </section>
     </main>
     {footer}
   </div>
-  <script src=\"{_escape(_rel_link(current_path, Path('assets/js/main.js')))}\"></script>
+  <script src="{_escape(_rel_link(current_path, Path('assets/js/main.js')))}"></script>
 </body>
 </html>
 """
@@ -767,390 +770,154 @@ def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]])
     output_path.write_text(doc, encoding="utf-8")
 
 
-def _build_css() -> str:
-    return """
-:root {
-  color-scheme: only light;
-  --bordeaux: #65141c;
-  --bordeaux-dark: #3a1016;
-  --bordeaux-bright: #92202b;
-  --ink: #0f0f0f;
-  --paper: #f3f1f0;
-  --fog: #e4e0de;
-  --accent: #e0b15a;
-  --line: rgba(101, 20, 28, 0.14);
-  --shadow: rgba(15, 15, 15, 0.18);
-  --radius: 20px;
-  --max-width: 1120px;
-  --ease: cubic-bezier(0.2, 0.6, 0.3, 1);
-}
 
-* {
-  box-sizing: border-box;
-}
+def _build_css(site: dict[str, Any]) -> str:
+    theme = site.get("theme", {})
+    if not isinstance(theme, dict):
+        theme = {}
+        
+    # Defaults (ALI Bordeaux)
+    primary = theme.get("primary", "#65141c")
+    primary_dark = theme.get("primary_dark", "#3a1016")
+    primary_bright = theme.get("primary_bright", "#92202b")
+    cream = theme.get("background", "#f3f1f0")
+    paper = theme.get("paper", "#f9f8f7")
+    gold = theme.get("accent", "#e0b15a")
+    text_main = theme.get("text_main", "#1a1a1a")
+    text_muted = theme.get("text_muted", "#4a4a4a")
 
-body {
+    return f"""
+:root {{
+  color-scheme: light;
+  
+  /* Dynamic Theme Tokens */
+  --bordeaux: {primary};
+  --bordeaux-dark: {primary_dark};
+  --bordeaux-bright: {primary_bright};
+  --cream: {cream};
+  --paper: {paper};
+  --gold: {gold};
+  
+  --bg-dark: var(--bordeaux-dark);
+  --bg-light: var(--paper);
+  --text-main: {text_main};
+  --text-muted: {text_muted};
+  
+  --header-bg: {cream}d9;
+  --card: #ffffff;
+  --card-border: {primary}1a;
+  --glass: rgba(255, 255, 255, 0.6);
+  --shadow: {primary_dark}1a;
+  
+  --font-heading: "Cormorant Garamond", serif;
+  --font-body: "Outfit", sans-serif;
+  --radius: 8px;
+  --max-width: 1000px;
+}}
+
+/* Base */
+body {{
   margin: 0;
-  font-family: "Work Sans", "Optima", "Gill Sans", sans-serif;
-  background: radial-gradient(circle at top, #f6f5f4 0%, var(--paper) 45%, var(--fog) 100%),
-    linear-gradient(120deg, rgba(101, 20, 28, 0.04), transparent 45%);
-  color: var(--ink);
-  line-height: 1.7;
-}
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--text-main);
+  line-height: 1.6;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+}}
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+/* Typography */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500&display=swap');
 
-img {
-  max-width: 100%;
-  display: block;
-}
+h1, h2, h3 {{
+  font-family: var(--font-heading);
+  color: var(--bordeaux);
+  margin-top: 0;
+}}
 
-.page-shell {
-  position: relative;
-  overflow: hidden;
-}
+h1 {{ font-size: 3.5rem; letter-spacing: -0.01em; margin-bottom: 0.5rem; }}
+h2 {{ font-size: 2.2rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--gold); display: inline-block; padding-bottom: 5px; }}
+a {{ color: var(--bordeaux); text-decoration: none; font-weight: 500; transition: color 0.2s; }}
+a:hover {{ color: var(--bordeaux-bright); }}
 
-.site-header {
-  position: sticky;
+/* Layout */
+.page-shell {{ min-height: 100vh; display: flex; flex-direction: column; }}
+main {{ flex: 1; padding-top: 100px; }}
+
+/* Header */
+.site-header {{
+  position: fixed;
   top: 0;
-  z-index: 10;
+  width: 100%;
+  padding: 20px 5vw;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
-  padding: 18px 6vw;
-  background: rgba(247, 240, 238, 0.94);
+  z-index: 100;
+  background: var(--header-bg);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
-}
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--card-border);
+}}
 
-.logo {
-  font-family: "Cormorant Garamond", "Baskerville", "Garamond", serif;
+.logo {{
+  font-family: var(--font-heading);
+  font-size: 24px;
   font-weight: 700;
-  font-size: 26px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
   color: var(--bordeaux);
-}
-
-.nav {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  font-size: 13px;
-  letter-spacing: 0.12em;
   text-transform: uppercase;
-}
+  letter-spacing: 0.05em;
+}}
 
-.nav a {
-  position: relative;
-  padding-bottom: 4px;
-}
+.nav {{ display: flex; gap: 30px; }}
+.nav a {{ color: var(--text-muted); text-transform: uppercase; font-size: 14px; letter-spacing: 0.1em; }}
+.nav a:hover, .nav a.active {{ color: var(--bordeaux); }}
 
-.nav a::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 2px;
-  width: 100%;
-  background: var(--bordeaux-bright);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
-}
+/* Components */
+.card, .profile-card {{
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 40px;
+  box-shadow: 0 10px 30px -10px var(--shadow);
+  transition: transform 0.3s;
+}}
 
-.nav a:hover::after,
-.nav a:focus::after,
-.nav a.active::after {
-  transform: scaleX(1);
-}
+.card:hover {{ transform: translateY(-5px); }}
 
-.cta {
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: #fff;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.hero {
-  position: relative;
-  padding: 110px 6vw 60px;
-  overflow: hidden;
-}
-
-.hero-inner {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 40px;
-  align-items: center;
-  padding: 120px 6vw 80px;
-  min-height: 60vh;
-  display: flex;
-  align-items: center;
-}
-
-.hero-grid {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 80px;
-  align-items: center;
-}
-
-.hero h1 {
-  font-family: "Cormorant Garamond", serif;
-  font-size: clamp(48px, 6vw, 88px);
-  color: var(--bordeaux);
-  margin-bottom: 32px;
-  letter-spacing: -0.02em;
-}
-
-.lead {
-  font-size: clamp(18px, 1.5vw, 22px);
-  color: rgba(62, 10, 17, 0.8);
-  max-width: 480px;
-  margin-bottom: 40px;
-  font-weight: 300;
-}
-
-.button, .cta {
-  display: inline-flex;
-  padding: 16px 32px;
+.button {{
+  padding: 12px 28px;
   background: var(--bordeaux);
   color: #fff;
-  border-radius: 999px;
-  font-size: 13px;
+  border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s;
+  font-size: 14px;
+  letter-spacing: 0.1em;
   border: none;
   cursor: pointer;
-}
+}}
+.button:hover {{ background: var(--bordeaux-bright); box-shadow: 0 5px 15px rgba(101, 20, 28, 0.2); }}
 
-.button:hover, .cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(107, 15, 26, 0.2);
+/* Forms */
+input, textarea {{
+  width: 100%;
+  padding: 15px;
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  background: #fff;
+  font-family: var(--font-body);
+  margin-bottom: 20px;
+}}
+input:focus, textarea:focus {{ border-color: var(--bordeaux); outline: none; }}
+
+/* Footer */
+.site-footer {{
   background: var(--bordeaux-dark);
-}
-
-.button.ghost {
-  background: transparent;
-  color: var(--bordeaux);
-  border: 1px solid rgba(107, 15, 26, 0.2);
-}
-
-.button.ghost:hover {
-  border-color: var(--bordeaux);
-  background: rgba(107, 15, 26, 0.03);
-}
-
-.content-section {
-  padding: 100px 6vw;
-}
-
-.content-section:nth-child(even) {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-.content-grid {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 60px;
-  align-items: center;
-}
-
-.content-section h2 {
-  font-family: "Cormorant Garamond", serif;
-  font-size: clamp(32px, 4vw, 48px);
-  color: var(--bordeaux);
-  margin-bottom: 24px;
-}
-
-.image-frame {
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(12px);
-  padding: 2px;
-  border-radius: var(--radius);
-  box-shadow: 0 40px 80px -20px rgba(62, 10, 17, 0.15);
-  overflow: hidden;
-  transform: scale(0.98);
-  transition: transform 0.6s var(--ease);
-}
-
-.content-section:hover .image-frame {
-  transform: scale(1);
-}
-
-.image-frame img {
-  width: 100%;
-  border-radius: calc(var(--radius) - 2px);
-  display: block;
-}
-
-.card {
-  background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: var(--radius);
-  padding: 32px;
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 20px 40px -10px var(--shadow);
-  transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease), border-color 0.4s;
-}
-
-.card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 30px 60px -12px rgba(62, 10, 17, 0.12);
-  border-color: #fff;
-}
-
-.newsletter {
-  margin-top: 40px;
-  padding: 40px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(247, 240, 238, 0.9));
-  border: 1px solid #fff;
-  box-shadow: 0 30px 60px -15px rgba(107, 15, 26, 0.1);
-}
-
-.newsletter-form {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.newsletter-form input {
-  flex: 1;
-  padding: 16px 24px;
-  border-radius: 999px;
-  border: 1px solid rgba(107, 15, 26, 0.1);
-  background: rgba(255, 255, 255, 0.5);
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-.newsletter-form input:focus {
-  outline: none;
-  background: #fff;
-  border-color: var(--bordeaux);
-  box-shadow: 0 0 0 4px rgba(107, 15, 26, 0.1);
-}
-
-.site-footer {
-  padding: 80px 6vw 40px;
-  background: #fff;
-  border-top: 1px solid var(--line);
-}
-
-.footer-grid {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 40px;
-}
-
-.footer-title {
-  font-family: "Cormorant Garamond", serif;
-  font-size: 20px;
-  color: var(--bordeaux);
-  margin-bottom: 16px;
-}
-
-.reveal {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s ease, transform 0.8s ease;
-}
-
-.reveal.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  border: 0;
-}
-
-@keyframes orbit {
-  0% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(-30px, 20px, 0); }
-  100% { transform: translate3d(0, 0, 0); }
-}
-
-@keyframes pulse {
-  0% { opacity: 0.7; }
-  50% { opacity: 1; }
-  100% { opacity: 0.7; }
-}
-
-/* Projects Card Specialization (Wide) */
-.profile-card--projects {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  align-items: center;
-}
-
-.profile-card--projects img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius);
-}
-
-.profile-card--projects .profile-content {
-  padding: 20px;
-}
-
-@media (max-width: 860px) {
-  .profile-card--projects {
-    grid-template-columns: 1fr;
-  }
-  
-  .site-header {
-    position: static;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-
-  .cta {
-    align-self: stretch;
-    text-align: center;
-  }
-}
-
-@media (max-width: 600px) {
-  .hero {
-    padding-top: 80px;
-  }
-
-  .hero-inner {
-    gap: 24px;
-  }
-}
-""".lstrip()
+  color: var(--cream);
+  padding: 60px 5vw;
+  margin-top: auto;
+}}
+.site-footer a {{ color: var(--gold); }}
+"""
 
 
 def _build_js() -> str:
@@ -1296,6 +1063,39 @@ window.addEventListener('DOMContentLoaded', () => {
 """.lstrip()
 
 
+def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path, hero_heading: str, hero_body: str, sections_html: str, overview_html: str, page_body_html: str) -> str:
+    """Render archive layout with dual-sidebar structure."""
+    return f"""
+      <section class="archive-layout">
+        <aside class="archive-sidebar-left">
+          <nav class="archive-nav">
+            <h3>The Index</h3>
+            <ul>
+              <li><a href="#overview">Overview</a></li>
+              <li><a href="#research">Research</a></li>
+              <li><a href="#projects">Projects</a></li>
+              <li><a href="#publications">Publications</a></li>
+            </ul>
+          </nav>
+        </aside>
+        <main class="archive-main">
+          <header class="archive-header">
+            <h1>{_escape(hero_heading)}</h1>
+            {hero_body}
+          </header>
+          {overview_html}
+          {sections_html}
+          {page_body_html}
+        </main>
+        <aside class="archive-sidebar-right">
+          <div class="archive-metadata">
+            <h3>Citations</h3>
+            <p>Quick reference metadata appears here.</p>
+          </div>
+        </aside>
+      </section>
+"""
+
 
 def _render_mescia_landing(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path) -> str:
     hero_title = _escape(site.get("site_name", "Mescia"))
@@ -1346,11 +1146,11 @@ def _build_placeholder_svg(label: str) -> str:
 """
 
 
-def _write_site_assets() -> None:
+def _write_site_assets(site: dict[str, Any]) -> None:
     CSS_DIR.mkdir(parents=True, exist_ok=True)
     JS_DIR.mkdir(parents=True, exist_ok=True)
     IMG_DIR.mkdir(parents=True, exist_ok=True)
-    (CSS_DIR / "style.css").write_text(_build_css(), encoding="utf-8")
+    (CSS_DIR / "style.css").write_text(_build_css(site), encoding="utf-8")
     (JS_DIR / "main.js").write_text(_build_js(), encoding="utf-8")
     
     # Copy landing assets if they exist in content/assets, otherwise use defaults (which we'll define)
@@ -1361,11 +1161,6 @@ def _write_site_assets() -> None:
     
     # We will assume landing assets are placed in content/assets/css/landing.css and content/assets/js/landing.js
     # and we need to copy them to SITE_DIR/assets
-    
-    pass # Placeholder for logic we handle via manual file creation in content/assets which we need to copy.
-    
-    # Wait, the script logic at 1327 copies from MEDIA_DIR to IMG_DIR.
-    # It does NOT copy generic assets from content/assets.
     
     # I should modify this to copy content/assets to site/assets if it exists.
     src_assets = CONTENT_DIR / "assets"
@@ -1556,7 +1351,7 @@ def _write_data_protection() -> None:
     data_dir = SITE_DIR / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     htaccess = """Require all denied
-<FilesMatch "\\.(csv|json)$">
+<FilesMatch \\.(csv|json)$>
   Require all denied
 </FilesMatch>
 """
@@ -1571,14 +1366,14 @@ def build_site() -> None:
     digests = _read_digests()
     meta_description = site.get("meta_description", "")
     layout_variant = (site.get("layout_variant") or "standard").strip().lower()
-    if layout_variant not in {"standard", "linkhub", "profile"}:
+    if layout_variant not in {"standard", "linkhub", "profile", "mescia_landing", "archive"}:
         layout_variant = "standard"
     show_digest_home = str(site.get("show_digest_home", "")).strip().lower() in {"1", "true", "yes", "on"}
 
     if SITE_DIR.exists():
         shutil.rmtree(SITE_DIR)
     SITE_DIR.mkdir(parents=True, exist_ok=True)
-    _write_site_assets()
+    _write_site_assets(site)
     _write_subscribe_php()
     _write_contact_php()
     _write_data_protection()
@@ -1587,18 +1382,11 @@ def build_site() -> None:
         current_path = _page_output_path(slug)
         css_href = _rel_link(current_path, Path("assets/css/style.css"))
         js_href = _rel_link(current_path, Path("assets/js/main.js"))
-        header = _render_header(slug, pages, current_path)
-        
-        # Add landing specific assets
+        extra_css = ""
         if slug == "" and layout_variant == "mescia_landing":
-             css_href += f'" />\n  <link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/landing.css")))}'
-             js_href_landing = _rel_link(current_path, Path("assets/js/landing.js"))
-             # We need to inject JS at the end of body, handled later?
-             # _render_section uses pages/digests context. 
-             # Wait, the JS injection is at the end of the loop:
-             # line 1572 page_body_html construction
-             # line 1630 final doc assembly
-             
+            extra_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/landing.css")))}" />'
+
+        header = _render_header(slug, pages, current_path)
         footer = _render_footer(site, pages, current_path, links)
         sections = list(page["sections"])
         if slug == "" and not show_digest_home:
@@ -1640,20 +1428,22 @@ def build_site() -> None:
         page_body_html = ""
         if page_body_inner:
             page_body_html = f"""
-      <section class=\"page-body\">
-        <div class=\"content-block reveal\">
+      <section class="page-body">
+        <div class="content-block reveal">
           {page_body_inner}
         </div>
       </section>"""
 
         if slug == "":
-            if layout_variant == "linkhub":
+            if layout_variant == "archive":
+                homepage_body = _render_archive_layout(site, pages, current_path, hero_heading, hero_body, sections_html, overview_html, page_body_html)
+            elif layout_variant == "linkhub":
                 homepage_body = f"""
-      <section class=\"linkhub\">
-        <div class=\"linkhub-inner\">
-          <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+      <section class="linkhub">
+        <div class="linkhub-inner">
+          <p class="eyebrow">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
           <h1>{_escape(hero_heading)}</h1>
-          <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+          <p class="subtitle">{_escape(site.get('site_tagline', ''))}</p>
           {_render_paragraphs(site.get('contact_blurb', ''))}
           {_render_linkhub_links(links)}
           {newsletter_html}
@@ -1664,34 +1454,34 @@ def build_site() -> None:
                 homepage_body = _render_mescia_landing(site, pages, current_path)
             elif layout_variant == "profile":
                 homepage_body = f"""
-      <section class=\"hero\">
-        <div class=\"hero-orbit\"></div>
-        <div class=\"hero-inner\">
+      <section class="hero">
+        <div class="hero-orbit"></div>
+        <div class="hero-inner">
           <div>
-            <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+            <p class="eyebrow">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
             <h1>{_escape(hero_heading)}</h1>
-            <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+            <p class="subtitle">{_escape(site.get('site_tagline', ''))}</p>
             {hero_body}
-            <div class=\"hero-actions\">{hero_cta}</div>
+            <div class="hero-actions">{hero_cta}</div>
           </div>
-          <div class=\"hero-art\">
-            <figure class=\"image-frame\"><img src=\"{_escape(hero_image_src)}\" alt=\"{_escape(hero_heading)} image\" /></figure>
+          <div class="hero-art">
+            <figure class="image-frame"><img src="{_escape(hero_image_src)}" alt="{_escape(hero_heading)} image" /></figure>
             <h3>Institute profile</h3>
             <p>{_escape(site.get('contact_blurb', ''))}</p>
           </div>
         </div>
       </section>
-      <section class=\"profile-section\">
-        <div class=\"profile-grid\">
-          <div class=\"profile-card\"><h3>Core questions</h3><p>Placeholder for the institute's core research questions.</p></div>
-          <div class=\"profile-card\"><h3>Methods</h3><p>Placeholder for modeling, experimentation, and field integration.</p></div>
-          <div class=\"profile-card\"><h3>Community</h3><p>Placeholder for seminars, visitors, and collaborations.</p></div>
+      <section class="profile-section">
+        <div class="profile-grid">
+          <div class="profile-card"><h3>Core questions</h3><p>Placeholder for the institute's core research questions.</p></div>
+          <div class="profile-card"><h3>Methods</h3><p>Placeholder for modeling, experimentation, and field integration.</p></div>
+          <div class="profile-card"><h3>Community</h3><p>Placeholder for seminars, visitors, and collaborations.</p></div>
         </div>
       </section>
-      <section class=\"profile-section\">
-        <div class=\"content-block reveal\">
+      <section class="profile-section">
+        <div class="content-block reveal">
           <h2>Selected outputs</h2>
-          <ul class=\"outputs-list\">
+          <ul class="outputs-list">
             <li>Placeholder output: paper, dataset, or public demonstration.</li>
             <li>Placeholder output: workshop, symposium, or lecture series.</li>
             <li>Placeholder output: open-source tool or platform.</li>
@@ -1702,21 +1492,21 @@ def build_site() -> None:
 """
             else:
                 homepage_body = f"""
-      <section class=\"hero\">
-        <div class=\"hero-orbit\"></div>
-        <div class=\"hero-inner\">
+      <section class="hero">
+        <div class="hero-orbit"></div>
+        <div class="hero-inner">
           <div>
-            <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+            <p class="eyebrow">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
             <h1>{_escape(hero_heading)}</h1>
-            <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+            <p class="subtitle">{_escape(site.get('site_tagline', ''))}</p>
             {hero_body}
-            <div class=\"hero-actions\">{hero_cta}</div>
+            <div class="hero-actions">{hero_cta}</div>
           </div>
-          <div class=\"hero-art\">
-            <figure class=\"image-frame\"><img src=\"{_escape(hero_image_src)}\" alt=\"{_escape(hero_heading)} image\" /></figure>
+          <div class="hero-art">
+            <figure class="image-frame"><img src="{_escape(hero_image_src)}" alt="{_escape(hero_heading)} image" /></figure>
             <h3>Dynamic systems, grounded experiments</h3>
             <p>Placeholder for a concise, compelling institute statement.</p>
-            <div class=\"hero-metrics\">
+            <div class="hero-metrics">
               <div><span>12+</span>Active research threads</div>
               <div><span>4</span>Cross-faculty labs</div>
               <div><span>20</span>Years of ALife history</div>
@@ -1730,21 +1520,21 @@ def build_site() -> None:
 """
         else:
             homepage_body = f"""
-      <section class=\"hero\">
-        <div class=\"hero-orbit\"></div>
-        <div class=\"hero-inner\">
+      <section class="hero">
+        <div class="hero-orbit"></div>
+        <div class="hero-inner">
           <div>
-            <p class=\"eyebrow\">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
+            <p class="eyebrow">{_escape(site.get('site_name', 'Artificial Life Institute'))}</p>
             <h1>{_escape(hero_heading)}</h1>
-            <p class=\"subtitle\">{_escape(site.get('site_tagline', ''))}</p>
+            <p class="subtitle">{_escape(site.get('site_tagline', ''))}</p>
             {hero_body}
-            <div class=\"hero-actions\">{hero_cta}</div>
+            <div class="hero-actions">{hero_cta}</div>
           </div>
-          <div class=\"hero-art\">
-            <figure class=\"image-frame\"><img src=\"{_escape(hero_image_src)}\" alt=\"{_escape(hero_heading)} image\" /></figure>
+          <div class="hero-art">
+            <figure class="image-frame"><img src="{_escape(hero_image_src)}" alt="{_escape(hero_heading)} image" /></figure>
             <h3>Dynamic systems, grounded experiments</h3>
             <p>Placeholder for a concise, compelling institute statement.</p>
-            <div class=\"hero-metrics\">
+            <div class="hero-metrics">
               <div><span>12+</span>Active research threads</div>
               <div><span>4</span>Cross-faculty labs</div>
               <div><span>20</span>Years of ALife history</div>
@@ -1759,9 +1549,9 @@ def build_site() -> None:
 
         doc = f"""<!doctype html>
 <html lang=\"en\">
-{_render_head(page['title'], css_href, meta_description)}
-<body data-newsletter-mode=\"{_escape(site.get('newsletter_mode', 'local'))}\" data-newsletter-url=\"{_escape(site.get('newsletter_provider_url', ''))}\">
-  <div class=\"page-shell\">
+{_render_head(page['title'], css_href, meta_description, extra_css=extra_css)}
+<body data-newsletter-mode="{_escape(site.get('newsletter_mode', 'local'))}" data-newsletter-url="{_escape(site.get('newsletter_provider_url', ''))}">
+  <div class="page-shell">
     {header}
     <main>
       {homepage_body}
@@ -1769,7 +1559,7 @@ def build_site() -> None:
     {footer}
   </div>
   <script src="{_escape(js_href)}"></script>
-  {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/landing.js")))}"></script>' if slug == "" and layout_variant == "mescia_landing" else ""}
+  {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/landing.js")))}"></script>' if slug == "" and layout_variant == "mescia_landing" else ''}
 </body>
 </html>
 """

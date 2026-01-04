@@ -82,6 +82,7 @@ html, body {
   font-size: 0.9rem;
   transition: all 0.4s ease;
   background: rgba(0,0,0,0.4);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 

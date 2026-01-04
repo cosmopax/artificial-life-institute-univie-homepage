@@ -1,7 +1,20 @@
 {
-    "site_name": "Mescia Cosmopax Group",
-    "site_tagline": "University of Vienna",
-    "meta_description": "Mescia Cosmopax Group Research",
-    "domain": "https://mescia-cosmopax-group.univie.ac.at",
-    "layout_variant": "mescia_landing"
+  "site_name": "Artificial Life Institute",
+  "site_tagline": "University of Vienna",
+  "meta_description": "Exploring the boundaries of biological and artificial systems.",
+  "domain": "https://artificial-life-institute.univie.ac.at",
+  "layout_variant": "archive",
+  "footer_note": "Department of Evolutionary Biology",
+  "address": "Djerassiplatz 1, 1030 Vienna",
+  "mission_statement": "The Artificial Life Institute serves as the immutable chronicle of synthetic evolution...",
+  "theme": {
+    "primary": "#65141c",
+    "primary_dark": "#3a1016",
+    "primary_bright": "#92202b",
+    "background": "#f3f1f0",
+    "paper": "#f9f8f7",
+    "accent": "#e0b15a",
+    "text_main": "#1a1a1a",
+    "text_muted": "#4a4a4a"
+  }
 }
