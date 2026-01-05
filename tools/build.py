@@ -71,7 +71,7 @@ def _render_emphasis(text: str) -> str:
 
 
 def _render_inline_markdown(text: str) -> str:
-    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+    pattern = re.compile(r"[[^]]+]\]\(([^)]+)\)")
     parts: list[str] = []
     last = 0
     raw = text or ""
@@ -791,19 +791,104 @@ def _build_css(site: dict[str, Any]) -> str:
     text_main = theme.get("text_main", "#1a1a1a")
     text_muted = theme.get("text_muted", "#4a4a4a")
 
+    # Theme Specifics
+    theme_overrides = ""
+    layout_variant = site.get("layout_variant", "standard")
+
+    if layout_variant == "sentient":
+        theme_overrides = f"""
+        /* Sentient / Terminal Theme */
+        body {{
+            background-color: #0d1117;
+            background-image: linear-gradient(0deg, transparent 24%, rgba(0, 255, 100, .03) 25%, rgba(0, 255, 100, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 100, .03) 75%, rgba(0, 255, 100, .03) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 100, .03) 25%, rgba(0, 255, 100, .03) 26%, transparent 27%, transparent 74%, rgba(0, 255, 100, .03) 75%, rgba(0, 255, 100, .03) 76%, transparent 77%, transparent);
+            background-size: 50px 50px;
+            font-family: 'Courier New', Courier, monospace;
+        }}
+        .sentient-layout {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }}
+        .terminal-window {{
+            background: rgba(13, 17, 23, 0.95);
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 20px rgba(0, 255, 100, 0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            font-family: 'Fira Code', 'Courier New', monospace;
+        }}
+        .terminal-header {{
+            background: #161b22;
+            padding: 8px 16px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .terminal-controls {{ display: flex; gap: 8px; }}
+        .control {{ width: 12px; height: 12px; border-radius: 50%; }}
+        .control.close {{ background: #ff5f56; }}
+        .control.minimize {{ background: #ffbd2e; }}
+        .control.maximize {{ background: #27c93f; }}
+        .terminal-title {{ color: #8b949e; font-size: 14px; }}
+        .terminal-content {{ padding: 20px; color: var(--text-main); }}
+        .prompt-line {{ margin-bottom: 1rem; }}
+        .prompt-user {{ color: #7ee787; font-weight: bold; }}
+        .prompt-char {{ color: #79c0ff; margin-right: 8px; }}
+        .command-input {{ color: var(--text-main); background: transparent; border: none; font-family: inherit; font-size: inherit; width: 80%; outline: none; }}
+        .cursor {{ display: inline-block; width: 10px; height: 1.2em; background: var(--primary); animation: blink 1s step-end infinite; vertical-align: middle; }}
+        @keyframes blink {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0; }} }}
+        .system-status {{ border: 1px solid var(--primary-dark); padding: 1rem; margin-bottom: 2rem; color: var(--primary); background: rgba(0, 255, 100, 0.05); }}
+        .status-row {{ display: flex; justify-content: space-between; margin-bottom: 0.5rem; }}
+        .status-value {{ font-weight: bold; }}
+        .grid-dashboard {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }}
+        .module-card {{ border: 1px solid #30363d; padding: 1.5rem; background: #0d1117; transition: all 0.2s; }}
+        .module-card:hover {{ border-color: var(--primary); box-shadow: 0 0 15px rgba(0, 255, 100, 0.1); }}
+        .module-header {{ border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; margin-bottom: 1rem; font-weight: bold; color: var(--primary); }}
+        """
+
+    elif layout_variant == "standard" and "holobiontic" in site.get("site_name", "").lower():
+        theme_overrides = f"""
+        /* Holobiontic / Bio Theme */
+        body {{
+            background-color: {cream};
+            background-image: radial-gradient({primary}1a 1px, transparent 1px);
+            background-size: 30px 30px;
+        }}
+        .site-header {{
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(45, 122, 70, 0.2);
+        }}
+        h1, h2, h3 {{ color: {primary_dark}; font-family: "Playfair Display", serif; }}
+        .card {{
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(45, 122, 70, 0.2);
+            box-shadow: 0 4px 20px rgba(45, 122, 70, 0.05);
+            border-radius: 12px;
+        }}
+        .button {{
+            background: linear-gradient(135deg, {primary_bright}, {primary_dark});
+            border-radius: 20px;
+            font-family: var(--font-body);
+            letter-spacing: 0.05em;
+        }}
+        .image-frame img {{ border-radius: 12px; }}
+        """
+
     return f"""
 :root {{
   color-scheme: light;
   
   /* Dynamic Theme Tokens */
-  --bordeaux: {primary};
-  --bordeaux-dark: {primary_dark};
-  --bordeaux-bright: {primary_bright};
+  --primary: {primary};
+  --primary-dark: {primary_dark};
+  --primary-bright: {primary_bright};
   --cream: {cream};
   --paper: {paper};
   --gold: {gold};
   
-  --bg-dark: var(--bordeaux-dark);
+  --bg-dark: var(--primary-dark);
   --bg-light: var(--paper);
   --text-main: {text_main};
   --text-muted: {text_muted};
@@ -817,7 +902,7 @@ def _build_css(site: dict[str, Any]) -> str:
   --font-heading: "Cormorant Garamond", serif;
   --font-body: "Outfit", sans-serif;
   --radius: 8px;
-  --max-width: 1000px;
+  --max-width: 1200px;
 }}
 
 /* Base */
@@ -827,37 +912,39 @@ body {{
   background: var(--paper);
   color: var(--text-main);
   line-height: 1.6;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  transition: background-color 0.3s, color 0.3s;
 }}
 
 /* Typography */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500&family=Fira+Code:wght@400;500&family=Playfair+Display:wght@400;700&display=swap');
 
 h1, h2, h3 {{
   font-family: var(--font-heading);
-  color: var(--bordeaux);
+  color: var(--primary);
   margin-top: 0;
 }}
 
-h1 {{ font-size: 3.5rem; letter-spacing: -0.01em; margin-bottom: 0.5rem; }}
+h1 {{ font-size: 3.5rem; letter-spacing: -0.01em; margin-bottom: 0.5rem; line-height: 1.1; }}
 h2 {{ font-size: 2.2rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--gold); display: inline-block; padding-bottom: 5px; }}
-a {{ color: var(--bordeaux); text-decoration: none; font-weight: 500; transition: color 0.2s; }}
-a:hover {{ color: var(--bordeaux-bright); }}
+a {{ color: var(--primary); text-decoration: none; font-weight: 500; transition: color 0.2s; }}
+a:hover {{ color: var(--primary-bright); }}
 
 /* Layout */
 .page-shell {{ min-height: 100vh; display: flex; flex-direction: column; }}
-main {{ flex: 1; padding-top: 100px; }}
+main {{ flex: 1; padding-top: 80px; width: 100%; max-width: var(--max-width); margin: 0 auto; padding-left: 5vw; padding-right: 5vw; box-sizing: border-box; }}
 
 /* Header */
 .site-header {{
   position: fixed;
   top: 0;
+  left: 0;
   width: 100%;
-  padding: 20px 5vw;
+  padding: 15px 5vw;
+  box-sizing: border-box;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 100;
+  z-index: 1000;
   background: var(--header-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -868,39 +955,54 @@ main {{ flex: 1; padding-top: 100px; }}
   font-family: var(--font-heading);
   font-size: 24px;
   font-weight: 700;
-  color: var(--bordeaux);
+  color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }}
 
 .nav {{ display: flex; gap: 30px; }}
-.nav a {{ color: var(--text-muted); text-transform: uppercase; font-size: 14px; letter-spacing: 0.1em; }}
-.nav a:hover, .nav a.active {{ color: var(--bordeaux); }}
+.nav a {{ color: var(--text-muted); text-transform: uppercase; font-size: 13px; letter-spacing: 0.1em; font-weight: 600; }}
+.nav a:hover, .nav a.active {{ color: var(--primary); }}
 
 /* Components */
 .card, .profile-card {{
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  padding: 40px;
-  box-shadow: 0 10px 30px -10px var(--shadow);
-  transition: transform 0.3s;
+  padding: 30px;
+  box-shadow: 0 4px 20px var(--shadow);
+  transition: transform 0.3s, box-shadow 0.3s;
 }}
 
-.card:hover {{ transform: translateY(-5px); }}
+.card:hover {{ transform: translateY(-3px); box-shadow: 0 8px 30px var(--shadow); }}
 
 .button {{
   padding: 12px 28px;
-  background: var(--bordeaux);
+  background: var(--primary);
   color: #fff;
   border-radius: 4px;
   text-transform: uppercase;
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.1em;
+  font-weight: 600;
   border: none;
   cursor: pointer;
+  display: inline-block;
+  text-align: center;
 }}
-.button:hover {{ background: var(--bordeaux-bright); box-shadow: 0 5px 15px rgba(101, 20, 28, 0.2); }}
+.button:hover {{ background: var(--primary-bright); color: #fff; }}
+.button.ghost {{ background: transparent; border: 1px solid var(--primary); color: var(--primary); }}
+.button.ghost:hover {{ background: var(--primary); color: #fff; }}
+
+/* Grid Layouts */
+.content-grid {{ display: grid; grid-template-columns: 1fr; gap: 40px; }}
+@media (min-width: 768px) {{
+  .content-grid {{ grid-template-columns: 1fr 1fr; align-items: center; }}
+  .content-grid > div:first-child {{ order: 1; }}
+  .content-grid > div:last-child {{ order: 2; }}
+}}
+
+.card-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; margin: 40px 0; }}
 
 /* Forms */
 input, textarea {{
@@ -908,20 +1010,30 @@ input, textarea {{
   padding: 15px;
   border: 1px solid var(--card-border);
   border-radius: 4px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.8);
   font-family: var(--font-body);
   margin-bottom: 20px;
+  box-sizing: border-box;
 }}
-input:focus, textarea:focus {{ border-color: var(--bordeaux); outline: none; }}
+input:focus, textarea:focus {{ border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px var(--card-border); }}
 
 /* Footer */
 .site-footer {{
-  background: var(--bordeaux-dark);
+  background: var(--primary-dark);
   color: var(--cream);
   padding: 60px 5vw;
-  margin-top: auto;
+  margin-top: 60px;
 }}
-.site-footer a {{ color: var(--gold); }}
+.site-footer a {{ color: var(--gold); opacity: 0.8; }}
+.site-footer a:hover {{ opacity: 1; }}
+.footer-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; }}
+.footer-title {{ font-family: var(--font-heading); font-size: 1.2rem; margin-bottom: 1rem; color: #fff; }}
+
+/* Images */
+img {{ max-width: 100%; height: auto; display: block; }}
+.image-frame {{ margin: 0; overflow: hidden; border-radius: var(--radius); box-shadow: 0 10px 40px -10px var(--shadow); }}
+
+{theme_overrides}
 """
 
 

@@ -18,3 +18,8 @@
 ## Phase 4: Launch
 - [ ] Final verification
 - [ ] Deployment to Univie webspace
+
+## Phase 12: ALI Identity & Polish [Completed]
+- [x] Restore Bordeaux identity in site.json and landing assets.
+- [x] Update mission, research, team, and publications blocks.
+- [x] Verify glassmorphism blur meets spec.

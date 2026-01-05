@@ -2,4 +2,6 @@
 
 - [ ] Initialize repository
 - [ ] Verify agent prompts
-- [ ] Write first blog post
+- [x] Write first blog post
+- [ ] Replace placeholder team roster with real names and roles
+- [ ] Replace placeholder publication list with real citations/links
