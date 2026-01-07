@@ -1,23 +1,25 @@
 {
-  "site_name": "Artificial Life Institute",
-  "site_tagline": "University of Vienna",
-  "meta_description": "Exploring the boundaries of biological and artificial systems.",
-  "domain": "https://artificial-life-institute.univie.ac.at",
-  "layout_variant": "standard",
-  "logo_text": "ALI",
-  "nav_cta_text": "Explore research",
-  "nav_cta_target": "research",
-  "footer_note": "Department of Evolutionary Biology",
-  "address": "Djerassiplatz 1, 1030 Vienna",
-  "mission_statement": "The Artificial Life Institute serves as the immutable chronicle of synthetic evolution, documenting how life emerges across biological, computational, and hybrid systems.",
-  "theme": {
-    "primary": "#65141c",
-    "primary_dark": "#3a1016",
-    "primary_bright": "#92202b",
-    "background": "#f3f1f0",
-    "paper": "#f9f8f7",
-    "accent": "#e0b15a",
-    "text_main": "#1a1a1a",
-    "text_muted": "#4a4a4a"
-  }
+    "site_name": "Artificial Life Institute",
+    "site_tagline": "University of Vienna",
+    "meta_description": "Exploring the boundaries of biological and artificial systems.",
+    "domain": "https://artificial-life-institute.univie.ac.at",
+    "site_notice": "This digital habit is mutating. We are enhancing the substrate while maintaining full operational capacity. Mind the wet paint and shifting geometries.",
+    "layout_variant": "rhizome",
+    "logo_text": "ALI",
+    "nav_cta_text": "Explore research",
+    "nav_cta_target": "research",
+    "footer_note": "Department of Evolutionary Biology",
+    "address": "Djerassiplatz 1, 1030 Vienna",
+    "mission_statement": "The Artificial Life Institute serves as the immutable chronicle of synthetic evolution, documenting how life emerges across biological, computational, and hybrid systems.",
+    "theme": {
+        "primary": "#d12a39",
+        "primary_dark": "#4a0b12",
+        "primary_bright": "#ff4d5e",
+        "background": "#0d0d0d",
+        "paper": "#141414",
+        "accent": "#00f0ff",
+        "text_main": "#e6e6e6",
+        "text_muted": "#8c8c8c"
+    },
+    "og_image": "https://artificial-life-institute.univie.ac.at/assets/img/og-image.jpg"
 }
