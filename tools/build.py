@@ -1411,6 +1411,26 @@ window.addEventListener('DOMContentLoaded', () => {
 """.lstrip()
 
 
+def _build_search_index(pages: dict[str, dict[str, object]]) -> str:
+    documents = []
+    for slug, page in pages.items():
+        if slug == "": continue
+        
+        # Extract content from sections
+        content = []
+        for section in page.get("sections", []):
+            title = section.get("title", "")
+            body = _read_block(section.get("source_md", ""))
+            content.append(f"{title}\n{body}")
+            
+        documents.append({
+            "title": page.get("title", ""),
+            "url": f"{slug}/index.html",
+            "content": "\n".join(content)
+        })
+    return json.dumps(documents)
+
+
 def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path, hero_heading: str, hero_body: str, sections_html: str, overview_html: str, page_body_html: str, hero_image_src: str = "") -> str:
     """Render archive layout with dual-sidebar structure."""
     return f"""
@@ -1418,6 +1438,10 @@ def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, obje
         <aside class="archive-sidebar-left">
           <nav class="archive-nav">
             <h3>The Index</h3>
+            <div class="search-box">
+                <input type="search" id="site-search" placeholder="Search archive..." />
+                <div id="search-results"></div>
+            </div>
             <ul>
               <li><a href="#overview">Overview</a></li>
               <li><a href="#research">Research</a></li>
@@ -1953,12 +1977,20 @@ def build_site() -> None:
     _write_subscribe_php()
     _write_contact_php()
     _write_data_protection()
+    
+    # Generate Search Index
+    (SITE_DIR / "search.json").write_text(_build_search_index(pages), encoding="utf-8")
 
     for slug, page in sorted(pages.items(), key=lambda item: item[1].get("order", 0)):
         current_path = _page_output_path(slug)
         css_href = _rel_link(current_path, Path("assets/css/style.css"))
         js_href = _rel_link(current_path, Path("assets/js/main.js"))
         extra_css = ""
+        body_scripts = f'<script src="{_escape(js_href)}"></script>'
+        
+        if slug == "" and layout_variant == "archive":
+             body_scripts += f'\n<script src="{_escape(_rel_link(current_path, Path("assets/js/search.js")))}"></script>'
+        
         if slug == "" and layout_variant == "mescia_landing":
             extra_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/landing.css")))}" />'
         # Include extra CSS for new layout variants
@@ -2143,7 +2175,7 @@ def build_site() -> None:
     </main>
     {footer}
   </div>
-  <script src="{_escape(js_href)}"></script>
+  {body_scripts}
   {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/landing.js")))}"></script>' if slug == "" and layout_variant == "mescia_landing" else ''}
 </body>
 </html>
