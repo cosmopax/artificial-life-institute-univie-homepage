@@ -11,7 +11,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Any
 
-BASE_DIR = Path(__file__).resolve().parents[1]
+# Robust Path Detection
+SCRIPT_DIR = Path(__file__).resolve().parent
+if (SCRIPT_DIR / "content").exists():
+    BASE_DIR = SCRIPT_DIR
+elif (SCRIPT_DIR.parent / "content").exists():
+    BASE_DIR = SCRIPT_DIR.parent
+else:
+    # Fallback to current working directory if content exists there
+    if (Path.cwd() / "content").exists():
+        BASE_DIR = Path.cwd()
+    else:
+        # Final fallback to parent of tools
+        BASE_DIR = SCRIPT_DIR.parent
+
 CONTENT_DIR = BASE_DIR / "content"
 SITE_DIR = BASE_DIR / "site"
 ASSETS_DIR = SITE_DIR / "assets"
@@ -27,6 +40,12 @@ SITE_JSON = CONTENT_DIR / "site.json"
 CONTROL_CSV = CONTENT_DIR / "control.csv"
 LINKS_CSV = CONTENT_DIR / "links.csv"
 POSTS_CSV = BLOG_DIR / "posts.csv"
+
+# Ensure directories exist
+CONTENT_DIR.mkdir(parents=True, exist_ok=True)
+BLOCKS_DIR.mkdir(parents=True, exist_ok=True)
+BLOG_DIR.mkdir(parents=True, exist_ok=True)
+MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 PLACEHOLDER_IMAGES = {
     "placeholder-hero.svg": "Warm abstract hero placeholder",
@@ -71,10 +90,13 @@ def _render_emphasis(text: str) -> str:
 
 
 def _render_inline_markdown(text: str) -> str:
-    pattern = re.compile(r"[[^]]+]\]\(([^)]+)\)")
+    raw = text or ""
+    # Inline Code
+    raw = re.sub(r"`([^`]+)`", r"<code>\1</code>", raw)
+    
+    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
     parts: list[str] = []
     last = 0
-    raw = text or ""
     for match in pattern.finditer(raw):
         parts.append(_render_emphasis(raw[last:match.start()]))
         label = _render_emphasis(match.group(1))
@@ -86,33 +108,80 @@ def _render_inline_markdown(text: str) -> str:
 
 
 def _render_markdown(text: str) -> str:
-    cleaned = (text or "").replace("\r\n", "\n").strip()
-    if not cleaned:
-        return ""
-    blocks = re.split(r"\n\s*\n", cleaned)
-    rendered: list[str] = []
-    for block in blocks:
-        lines = [line.rstrip() for line in block.splitlines() if line.strip()]
-        if not lines:
+    lines = (text or "").replace("\r\n", "\n").splitlines()
+    rendered = []
+    current_block = []
+    mode = None # list, code, quote, None
+    
+    def flush():
+        nonlocal mode, current_block
+        if not current_block: return
+        
+        if mode == "code":
+            code_text = _escape("\n".join(current_block))
+            rendered.append(f"<pre><code>{code_text}</code></pre>")
+        elif mode == "list":
+            items = "".join(f"<li>{_render_inline_markdown(li)}</li>" for li in current_block)
+            rendered.append(f"<ul>{items}</ul>")
+        elif mode == "quote":
+            # Join with single newline for blockquote content to preserve paragraphs
+            quote_content = _render_markdown("\n\n".join(current_block))
+            rendered.append(f"<blockquote>{quote_content}</blockquote>")
+        else:
+            block_text = " ".join(current_block)
+            heading_match = re.match(r"^(#{1,6})\s+(.*)$", block_text)
+            if heading_match:
+                level = len(heading_match.group(1))
+                tag = f"h{min(level+1, 6)}"
+                rendered.append(f"<{tag}>{_render_inline_markdown(heading_match.group(2))}</{tag}>")
+            elif re.match(r"^---+$", block_text):
+                rendered.append("<hr />")
+            else:
+                rendered.append(f"<p>{_render_inline_markdown(block_text)}</p>")
+        
+        current_block = []
+        mode = None
+
+    for line in lines:
+        stripped = line.strip()
+        
+        # Code Block Toggle
+        if stripped.startswith("```"):
+            if mode == "code":
+                flush()
+            else:
+                flush()
+                mode = "code"
             continue
-        if all(line.lstrip().startswith(("-", "*")) for line in lines):
-            items = [
-                f"<li>{_render_inline_markdown(line.lstrip()[1:].strip())}</li>"
-                for line in lines
-            ]
-            rendered.append("<ul>" + "".join(items) + "</ul>")
+            
+        if mode == "code":
+            current_block.append(line)
             continue
-        heading_match = re.match(r"^(#{1,3})\s+(.*)$", lines[0])
-        if heading_match:
-            level = len(heading_match.group(1))
-            heading = _render_inline_markdown(heading_match.group(2))
-            tag = "h2" if level == 1 else "h3" if level == 2 else "h4"
-            rendered.append(f"<{tag}>{heading}</{tag}>")
-            rest = [line for line in lines[1:] if line.strip()]
-            if rest:
-                rendered.append(f"<p>{_render_inline_markdown(' '.join(rest))}</p>")
+            
+        if not stripped:
+            flush()
             continue
-        rendered.append(f"<p>{_render_inline_markdown(' '.join(lines))}</p>")
+            
+        # List detection
+        if stripped.startswith(("- ", "* ")):
+            if mode != "list": flush()
+            mode = "list"
+            current_block.append(stripped[2:])
+            continue
+            
+        # Quote detection
+        if stripped.startswith(">"):
+            if mode != "quote": flush()
+            mode = "quote"
+            current_block.append(stripped[1:].strip())
+            continue
+            
+        if mode in ("list", "quote"):
+            flush()
+            
+        current_block.append(stripped)
+        
+    flush()
     return "\n".join(rendered)
 
 
@@ -143,20 +212,33 @@ def _read_block(source_md: str) -> str:
 
 def _read_site_config() -> dict[str, Any]:
     if SITE_JSON.exists():
-        return json.loads(SITE_JSON.read_text(encoding="utf-8"))
-    return {
+        config = json.loads(SITE_JSON.read_text(encoding="utf-8"))
+    else:
+        config = {}
+    
+    # Standard Defaults
+    defaults = {
         "site_name": "Artificial Life Institute",
-        "site_tagline": "",
-        "meta_description": "Artificial Life Institute at the University of Vienna",
-        "contact_blurb": "",
+        "site_tagline": "University of Vienna",
+        "meta_description": "Academic research and projects",
+        "contact_blurb": "We welcome collaborations and inquiries.",
         "domain": "",
         "newsletter_mode": "local",
         "newsletter_provider_url": "",
         "layout_variant": "standard",
-        "footer_note": "",
-        "address": "",
+        "footer_note": "Department of Evolutionary Biology",
+        "address": "Djerassiplatz 1, 1030 Vienna",
         "show_digest_home": "false",
+        "logo_text": "ALI",
+        "nav_cta_text": "Get in touch",
+        "nav_cta_target": "contact",
     }
+    
+    for key, val in defaults.items():
+        if key not in config:
+            config[key] = val
+            
+    return config
 
 
 def _normalize_slug(raw_slug: str) -> str:
@@ -465,7 +547,11 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
         href = _rel_page_link(current_path, slug)
         active = "active" if slug == current_slug else ""
         nav_links.append(f"<a class=\"{active}\" href=\"{_escape(href)}\">{_escape(title)}</a>")
-    cta_href = _rel_page_link(current_path, "contact") if "contact" in pages else "#"
+    
+    # Dynamic CTA
+    cta_target = str(site.get("nav_cta_target") or "contact")
+    cta_text = str(site.get("nav_cta_text") or "Get in touch")
+    cta_href = _rel_page_link(current_path, cta_target) if cta_target in pages else "#"
 
     # Dynamic Logo
     logo_text = str(site.get("logo_text") or site.get("site_name") or "ALI")
@@ -474,7 +560,7 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
 <header class="site-header">
   <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">{_escape(logo_text)}</a>
   <nav class="nav">{''.join(nav_links)}</nav>
-  <a class="cta" href="{_escape(cta_href)}">Get in touch</a>
+  <a class="cta" href="{_escape(cta_href)}">{_escape(cta_text)}</a>
 </header>
 """
 
@@ -698,7 +784,7 @@ def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, objec
     slug = digest["slug"]
     current_path = Path("digest") / slug / "index.html"
     css_href = _rel_link(current_path, Path("assets/css/style.css"))
-    header = _render_header("digest", pages, current_path)
+    header = _render_header("digest", pages, current_path, site)
     footer = _render_footer(site, pages, current_path, links)
     back_link = _rel_page_link(current_path, "digest")
     body_html = _render_markdown(_read_block(digest.get("source_md", "")))
@@ -1773,9 +1859,16 @@ if ($name === '' || $email === '' || $message === '') {
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
   fail(400, 'invalid_email');
 }
-if (mb_strlen($message) > 4000) {
+if (mb_strlen($message) < 10) {
+  fail(400, 'message_too_short');
+}
+if (mb_strlen($message) > 5000) {
   fail(400, 'message_too_long');
 }
+
+// Sanitize for storage
+$name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+$message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
 
 $dataDir = __DIR__ . '/data';
 if (!is_dir($dataDir)) {
