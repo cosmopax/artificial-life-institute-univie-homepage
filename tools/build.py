@@ -1958,6 +1958,62 @@ def _write_data_protection() -> None:
     (data_dir / ".htaccess").write_text(htaccess, encoding="utf-8")
 
 
+def _generate_rss(site: dict[str, Any], posts: list[dict[str, str]]) -> str:
+    domain = site.get("domain", "").rstrip("/")
+    site_name = _escape(site.get("site_name", ""))
+    
+    items = []
+    for post in posts:
+        pub_date = datetime.strptime(post['date'], "%Y-%m-%d").strftime("%a, %d %b %Y %H:%M:%S +0000")
+        link = f"{domain}/blog/{post['slug']}/"
+        items.append(f"""    <item>
+      <title>{_escape(post['title'])}</title>
+      <link>{link}</link>
+      <guid>{link}</guid>
+      <pubDate>{pub_date}</pubDate>
+      <description>{_escape(post.get('body', '')[:200])}...</description>
+    </item>""")
+    
+    return f"""<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+  <title>{site_name}</title>
+  <link>{domain}</link>
+  <description>{_escape(site.get('meta_description', ''))}</description>
+  <language>en-us</language>
+{"\n".join(items)}
+</channel>
+</rss>"""
+
+
+def _generate_sitemap(site: dict[str, Any], pages: dict[str, Any], posts: list[dict[str, str]]) -> str:
+    domain = site.get("domain", "").rstrip("/")
+    now = datetime.now().strftime("%Y-%m-%d")
+    
+    urls = []
+    # Add pages
+    for slug in pages:
+        path = f"{slug}/" if slug else ""
+        urls.append(f"""  <url>
+    <loc>{domain}/{path}</loc>
+    <lastmod>{now}</lastmod>
+    <priority>0.8</priority>
+  </url>""")
+    
+    # Add posts
+    for post in posts:
+        urls.append(f"""  <url>
+    <loc>{domain}/blog/{post['slug']}/</loc>
+    <lastmod>{post['date']}</lastmod>
+    <priority>0.6</priority>
+  </url>""")
+        
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{"\n".join(urls)}
+</urlset>"""
+
+
 def build_site() -> None:
     pages = _read_control()
     site = _read_site_config()
@@ -1978,6 +2034,11 @@ def build_site() -> None:
     _write_contact_php()
     _write_data_protection()
     
+    # SEO & Syndication
+    if site.get("domain"):
+        (SITE_DIR / "rss.xml").write_text(_generate_rss(site, posts), encoding="utf-8")
+        (SITE_DIR / "sitemap.xml").write_text(_generate_sitemap(site, pages, posts), encoding="utf-8")
+
     # Generate Search Index
     (SITE_DIR / "search.json").write_text(_build_search_index(pages), encoding="utf-8")
 
