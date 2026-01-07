@@ -3,7 +3,7 @@
   "site_tagline": "University of Vienna",
   "meta_description": "Exploring the boundaries of biological and artificial systems.",
   "domain": "https://artificial-life-institute.univie.ac.at",
-  "layout_variant": "archive",
+  "layout_variant": "standard",
   "logo_text": "ALI",
   "nav_cta_text": "Explore research",
   "nav_cta_target": "research",
