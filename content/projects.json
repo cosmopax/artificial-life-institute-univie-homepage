@@ -1,0 +1,14 @@
+[
+    {
+        "id": "synthetic-cells",
+        "title": "Synthetic Cells",
+        "description": "Engineering minimal living systems from non-living components.",
+        "image": "placeholder-grid.svg",
+        "keywords": [
+            "Biology",
+            "Simulation"
+        ],
+        "type": "overlay",
+        "content_file": "overlays/synthetic-cells.md"
+    }
+]

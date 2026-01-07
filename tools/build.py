@@ -556,11 +556,37 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
     # Dynamic Logo
     logo_text = str(site.get("logo_text") or site.get("site_name") or "ALI")
 
+    # Burger Menu construction
+    burger_nav_items = []
+    for slug in NAV_SLUGS:
+        if slug not in pages: continue
+        t = pages[slug]["title"]
+        h = _rel_page_link(current_path, slug)
+        burger_nav_items.append(f'<a href="{_escape(h)}">{_escape(t)}</a>')
+    
+    # Add footer-like links to burger
+    burger_nav_items.append('<hr>')
+    burger_nav_items.append(f'<a href="{_escape(cta_href)}">{_escape(cta_text)}</a>')
+
     return f"""
 <header class="site-header">
-  <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">{_escape(logo_text)}</a>
+  <div class="header-left">
+      <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">{_escape(logo_text)}</a>
+  </div>
   <nav class="nav">{''.join(nav_links)}</nav>
-  <a class="cta" href="{_escape(cta_href)}">{_escape(cta_text)}</a>
+  <div class="header-right">
+      <a class="cta" href="{_escape(cta_href)}">{_escape(cta_text)}</a>
+      <button class="burger-toggle" aria-label="Toggle Navigation" onclick="toggleBurgerMenu()">
+        <span></span><span></span><span></span>
+      </button>
+  </div>
+  <!-- Burger Overlay -->
+  <div class="burger-menu-overlay" id="burger-menu">
+      <button class="burger-close" onclick="toggleBurgerMenu()">&times;</button>
+      <nav class="burger-nav">
+          {''.join(burger_nav_items)}
+      </nav>
+  </div>
 </header>
 """
 
@@ -609,6 +635,14 @@ def _render_section(
         return _render_contact_form(section, current_path)
     if kind == "digest_list":
         return _render_digest_list(section, current_path, digests)
+    if kind == "project_grid_v2":
+        return _render_project_grid_v2(section, current_path)
+    if kind == "team_grid":
+        return _render_team_grid(section, current_path)
+    if kind == "pub_list":
+        return _render_pub_list(section, current_path)
+    if kind == "research_grid":
+        return _render_research_grid(section, current_path)
     heading = _escape(section.get("title", ""))
     body = _render_markdown(_read_block(section.get("source_md", "")))
     cta_text = _escape(section.get("cta_text", ""))
@@ -633,6 +667,196 @@ def _render_section(
 </section>
 """
 
+def _render_project_grid_v2(section: dict[str, str], current_path: Path) -> str:
+    projects_path = CONTENT_DIR / "projects.json"
+    if not projects_path.exists():
+        return "<p>Missing projects.json</p>"
+    
+    projects = json.loads(projects_path.read_text(encoding="utf-8"))
+    
+    cards = []
+    overlays = []
+    
+    for proj in projects:
+        t = proj.get("title", "")
+        desc = proj.get("description", "")
+        img_raw = proj.get("image", "")
+        img = _resolve_image_src(img_raw, current_path)
+        p_type = proj.get("type", "link")
+        p_id = proj.get("id", "")
+        keywords = proj.get("keywords", [])
+        if isinstance(keywords, list):
+            keywords = ", ".join(keywords)
+            
+        action_attr = ""
+        link_target = "#"
+        
+        if p_type == "link":
+            link_target = proj.get("target", "#")
+            action_attr = f'target="_blank"' 
+        elif p_type == "overlay":
+            link_target = "#"
+            action_attr = f'data-type="overlay" data-overlay-id="{p_id}"'
+            
+            # Pre-render overlay content
+            content_file = proj.get("content_file", "")
+            overlay_body = ""
+            if content_file:
+                overlay_body = _render_markdown(_read_block(content_file))
+            
+            overlays.append(f"""
+<div class="project-overlay" id="overlay-{p_id}">
+  <div class="overlay-backdrop" data-close-overlay></div>
+  <div class="overlay-content">
+    <button class="overlay-close" data-close-overlay>&times;</button>
+    <div class="overlay-scroll">
+      <h2>{_escape(t)}</h2>
+      <img src="{_escape(img)}" alt="{_escape(t)}" class="overlay-hero">
+      <div class="overlay-body">{overlay_body}</div>
+    </div>
+  </div>
+</div>""")
+
+        cards.append(f"""
+<a href="{link_target}" class="project-card-v2 scroll-reveal" {action_attr}>
+  <div class="card-bg" data-bg="{_escape(img)}"></div>
+  <div class="card-content">
+    <h3>{_escape(t)}</h3>
+    <p class="keywords">{_escape(keywords)}</p>
+    <div class="card-hover-reveal">
+      <p>{_escape(desc)}</p>
+    </div>
+  </div>
+</a>""")
+
+    grid_html = "".join(cards)
+    overlays_html = "".join(overlays)
+    
+    section_id = _escape(section.get("section_id", "projects"))
+    heading = _escape(section.get("title", "Projects"))
+    
+    return f"""
+<section class="content-section project-grid-section" id="{section_id}">
+  <div class="v2-grid-container">
+    <h2>{heading}</h2>
+    <div class="project-grid-v2-wrapper">
+      {grid_html}
+    </div>
+  </div>
+  {overlays_html}
+</section>
+"""
+
+def _render_team_grid(section: dict[str, str], current_path: Path) -> str:
+    path = CONTENT_DIR / "team.json"
+    if not path.exists(): return "<p>Missing team.json</p>"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    
+    cards = []
+    for p in items:
+        name = _escape(p.get("name", ""))
+        role = _escape(p.get("role", ""))
+        bio = _escape(p.get("bio", ""))
+        img = _resolve_image_src(p.get("image", ""), current_path)
+        
+        cards.append(f"""
+<div class="team-card scroll-reveal">
+  <div class="team-img" style="background-image: url('{_escape(img)}')"></div>
+  <div class="team-info">
+    <h3>{name}</h3>
+    <span class="role">{role}</span>
+    <p>{bio}</p>
+  </div>
+</div>""")
+
+    section_id = _escape(section.get("section_id", "team"))
+    heading = _escape(section.get("title", "Team"))
+    
+    return f"""
+<section class="content-section team-section" id="{section_id}">
+  <div class="v2-grid-container">
+    <h2>{heading}</h2>
+    <div class="team-grid">
+      {"".join(cards)}
+    </div>
+  </div>
+</section>
+"""
+
+def _render_pub_list(section: dict[str, str], current_path: Path) -> str:
+    path = CONTENT_DIR / "publications.json"
+    if not path.exists(): return "<p>Missing publications.json</p>"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    
+    rows = []
+    for p in items:
+        title = _escape(p.get("title", ""))
+        authors = _escape(p.get("authors", ""))
+        venue = _escape(p.get("venue", ""))
+        year = _escape(p.get("year", ""))
+        link = _escape(p.get("link", "#"))
+        
+        rows.append(f"""
+<div class="pub-row scroll-reveal">
+  <div class="pub-year">{year}</div>
+  <div class="pub-content">
+    <a href="{link}" class="pub-title" target="_blank">{title}</a>
+    <div class="pub-meta">{authors} — <span class="venue">{venue}</span></div>
+  </div>
+</div>""")
+
+    section_id = _escape(section.get("section_id", "publications"))
+    heading = _escape(section.get("title", "Publications"))
+    
+    return f"""
+<section class="content-section pub-section" id="{section_id}">
+  <div class="v2-grid-container">
+    <h2>{heading}</h2>
+    <div class="pub-list">
+      {"".join(rows)}
+    </div>
+  </div>
+</section>
+"""
+
+def _render_research_grid(section: dict[str, str], current_path: Path) -> str:
+    path = CONTENT_DIR / "research.json"
+    if not path.exists(): return "<p>Missing research.json</p>"
+    items = json.loads(path.read_text(encoding="utf-8"))
+    
+    cards = []
+    for r in items:
+        title = _escape(r.get("title", ""))
+        teaser = _escape(r.get("teaser", ""))
+        desc = _escape(r.get("description", ""))
+        img = _resolve_image_src(r.get("image", ""), current_path)
+        
+        cards.append(f"""
+<div class="research-card scroll-reveal">
+  <div class="research-img"><img src="{img}" alt="{title}"></div>
+  <div class="research-content">
+    <h3>{title}</h3>
+    <p class="teaser">{teaser}</p>
+    <details>
+      <summary>Read More</summary>
+      <p class="desc">{desc}</p>
+    </details>
+  </div>
+</div>""")
+
+    section_id = _escape(section.get("section_id", "research"))
+    heading = _escape(section.get("title", "Research Areas"))
+    
+    return f"""
+<section class="content-section research-section" id="{section_id}">
+  <div class="v2-grid-container">
+    <h2>{heading}</h2>
+    <div class="research-grid">
+      {"".join(cards)}
+    </div>
+  </div>
+</section>
+"""
 
 def _render_linkhub_links(links: list[dict[str, str]]) -> str:
     if not links:
@@ -933,151 +1157,6 @@ def _build_css(site: dict[str, Any]) -> str:
         .module-header {{ border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; margin-bottom: 1rem; font-weight: bold; color: var(--primary); }}
         """
 
-    elif layout_variant == "archive":
-        # Artificial Life Institute (Scientific Premium)
-        theme_overrides += """
-        /* Scientific Premium Theme */
-        :root {
-            --bg-color: #f9f8f7;       /* Warm Paper */
-            --text-main: #1a1a1a;      /* Soft Black */
-            --text-muted: #5e5e5e;     /* Grey */
-            --accent: #65141c;         /* Maroon/Oxblood */
-            --gold: #e0b15a;           /* Muted Gold */
-            --font-head: 'Cormorant Garamond', serif;
-            --font-body: 'Outfit', sans-serif;
-            --border-light: rgba(0,0,0,0.08);
-        }
-
-        body {
-            background-color: var(--bg-color);
-            background-image: url('../img/ali_hero_generative_bio_1767665904397.png'); /* Subtle texture use if needed, or keeping clean */
-            background-image: none; /* Let's keep it clean paper */
-        }
-        
-        .archive-layout {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 240px 1fr 280px;
-            gap: 3rem;
-            padding: 2rem;
-            min-height: 100vh;
-        }
-        
-        @media (max-width: 1100px) {
-            .archive-layout { grid-template-columns: 1fr; }
-            .archive-sidebar-left, .archive-sidebar-right { display: none; } /* Mobile simplification */
-        }
-
-        /* Sidebar Styling */
-        .archive-sidebar-left {
-            border-right: 1px solid var(--border-light);
-            padding-right: 1rem;
-        }
-        
-        .archive-nav h3 {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--accent);
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid var(--gold);
-            padding-bottom: 0.5rem;
-            display: inline-block;
-        }
-        
-        .archive-nav ul {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .archive-nav li { margin-bottom: 0.8rem; }
-        .archive-nav a {
-            color: var(--text-muted);
-            font-family: var(--font-body);
-            font-size: 0.95rem;
-            transition: color 0.2s;
-        }
-        .archive-nav a:hover { color: var(--accent); }
-
-        /* Main Content Styling */
-        .archive-header {
-            margin-bottom: 4rem;
-            position: relative;
-        }
-        
-        .archive-hero-image {
-            width: 100%;
-            height: 400px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 40px -10px rgba(101, 20, 28, 0.15);
-        }
-
-        .archive-header h1 {
-            font-size: 4rem;
-            line-height: 1;
-            color: var(--accent);
-            margin-bottom: 1rem;
-            font-weight: 400;
-        }
-        
-        .archive-header p {
-            font-size: 1.25rem;
-            color: var(--text-muted);
-            max-width: 700px;
-            font-family: var(--font-head);
-            line-height: 1.5;
-        }
-
-        /* Scientific Cards */
-        .content-block {
-            background: #fff;
-            border: 1px solid var(--border-light);
-            padding: 2.5rem;
-            border-radius: 2px;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-            position: relative;
-        }
-        
-        .content-block::before {
-            content: "";
-            position: absolute;
-            top: 0; left: 0;
-            width: 4px;
-            height: 100%;
-            background: var(--gold);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .content-block:hover::before { opacity: 1; }
-        
-        .content-block h2 {
-            font-size: 1.8rem;
-            color: var(--text-main);
-            border-bottom: none;
-            margin-bottom: 1rem;
-        }
-
-        /* Right Sidebar */
-        .archive-sidebar-right {
-            border-left: 1px solid var(--border-light);
-            padding-left: 1rem;
-        }
-        
-        .archive-metadata {
-            font-family: var(--font-body);
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            background: #fff;
-            padding: 1.5rem;
-            border: 1px solid var(--border-light);
-        }
-        """
-
     elif layout_variant == "standard" and "holobiontic" in site.get("site_name", "").lower():
         theme_overrides = f"""
         /* Holobiontic / Bio Theme */
@@ -1136,177 +1215,127 @@ def _build_css(site: dict[str, Any]) -> str:
   --max-width: 1200px;
 }}
 
-/* Base */
+/* Base & Reset */
+*, *::before, *::after {{ box-sizing: border-box; }}
+html {{ scroll-behavior: smooth; }}
 body {{
   margin: 0;
   font-family: var(--font-body);
   background: var(--paper);
   color: var(--text-main);
-  line-height: 1.6;
+  line-height: 1.7;
+  font-feature-settings: "kern", "liga", "clig", "calt";
   transition: background-color 0.3s, color 0.3s;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }}
 
 /* Typography */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500&family=Fira+Code:wght@400;500&family=Playfair+Display:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600&family=Fira+Code:wght@400;500&family=Playfair+Display:wght@400;700&display=swap');
 
-h1, h2, h3 {{
+h1, h2, h3, h4, h5, h6 {{
   font-family: var(--font-heading);
   color: var(--primary);
-  margin-top: 0;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
 }}
 
-h1 {{ font-size: 3.5rem; letter-spacing: -0.01em; margin-bottom: 0.5rem; line-height: 1.1; }}
-h2 {{ font-size: 2.2rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--gold); display: inline-block; padding-bottom: 5px; }}
-a {{ color: var(--primary); text-decoration: none; font-weight: 500; transition: color 0.2s; }}
-a:hover {{ color: var(--primary-bright); }}
+h1 {{ font-size: clamp(2.5rem, 5vw, 4.5rem); letter-spacing: -0.02em; margin-bottom: 1rem; }}
+h2 {{ font-size: clamp(2rem, 4vw, 3rem); padding-bottom: 0.5rem; border-bottom: 1px solid var(--gold); display: inline-block; }}
+h3 {{ font-size: 1.75rem; }}
+p {{ margin-bottom: 1.5rem; max-width: 70ch; }}
+
+a {{ color: var(--primary); text-decoration: none; font-weight: 500; transition: all 0.2s ease; position: relative; }}
+a:not(.button):hover {{ color: var(--primary-bright); }}
+a:not(.button)::after {{
+    content: ''; position: absolute; width: 100%; transform: scaleX(0); height: 1px; bottom: -2px; left: 0;
+    background-color: var(--primary-bright); transform-origin: bottom right; transition: transform 0.25s ease-out;
+}}
+a:not(.button):hover::after {{ transform: scaleX(1); transform-origin: bottom left; }}
 
 /* Layout */
 .page-shell {{ min-height: 100vh; display: flex; flex-direction: column; }}
-main {{ flex: 1; padding-top: 80px; width: 100%; max-width: var(--max-width); margin: 0 auto; padding-left: 5vw; padding-right: 5vw; box-sizing: border-box; }}
+main {{ flex: 1; padding-top: 80px; width: 100%; max-width: var(--max-width); margin: 0 auto; padding-left: 5vw; padding-right: 5vw; }}
 
 /* Header */
 .site-header {{
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 15px 5vw;
-  box-sizing: border-box;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  top: 0; left: 0; width: 100%;
+  padding: 1rem 5vw;
+  display: flex; justify-content: space-between; align-items: center;
   z-index: 1000;
-  background: var(--header-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
 }}
+.site-header.scrolled {{ padding: 0.75rem 5vw; background: rgba(255, 255, 255, 0.95); box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
 
-.logo {{
-  font-family: var(--font-heading);
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}}
-
-.nav {{ display: flex; gap: 30px; }}
-.nav a {{ color: var(--text-muted); text-transform: uppercase; font-size: 13px; letter-spacing: 0.1em; font-weight: 600; }}
+.logo {{ font-family: var(--font-heading); font-size: 1.5rem; font-weight: 700; color: var(--primary); letter-spacing: 0.05em; text-transform: uppercase; }}
+.nav {{ display: flex; gap: 2rem; }}
+.nav a {{ color: var(--text-muted); text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.1em; font-weight: 600; }}
 .nav a:hover, .nav a.active {{ color: var(--primary); }}
-.cta {{
-  padding: 10px 22px;
-  border-radius: 999px;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 12px;
-  font-weight: 600;
-}}
-.cta:hover {{ background: var(--primary); color: #fff; }}
+.nav a::after {{ display: none; }} /* Disable underline for nav items */
 
 /* Components */
-.card, .profile-card {{
+.card {{
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
-  padding: 30px;
-  box-shadow: 0 4px 20px var(--shadow);
-  transition: transform 0.3s, box-shadow 0.3s;
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.02);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }}
-
-.card:hover {{ transform: translateY(-3px); box-shadow: 0 8px 30px var(--shadow); }}
+.card:hover {{ transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02); border-color: var(--gold); }}
 
 .button {{
-  padding: 12px 28px;
-  background: var(--primary);
-  color: #fff;
-  border-radius: 4px;
-  text-transform: uppercase;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  display: inline-block;
-  text-align: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0.75rem 1.5rem;
+  background: var(--primary); color: #fff;
+  border-radius: 4px; border: 1px solid var(--primary);
+  text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.1em; font-weight: 600;
+  cursor: pointer; transition: all 0.2s ease;
 }}
-.button:hover {{ background: var(--primary-bright); color: #fff; }}
-.button.ghost {{ background: transparent; border: 1px solid var(--primary); color: var(--primary); }}
+.button:hover {{ background: var(--primary-bright); border-color: var(--primary-bright); transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+.button.ghost {{ background: transparent; color: var(--primary); }}
 .button.ghost:hover {{ background: var(--primary); color: #fff; }}
 
 /* Grid Layouts */
-.content-grid {{ display: grid; grid-template-columns: 1fr; gap: 40px; }}
+.content-grid {{ display: grid; grid-template-columns: 1fr; gap: 3rem; margin: 4rem 0; }}
 @media (min-width: 768px) {{
   .content-grid {{ grid-template-columns: 1fr 1fr; align-items: center; }}
   .content-grid > div:first-child {{ order: 1; }}
   .content-grid > div:last-child {{ order: 2; }}
 }}
 
-.card-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; margin: 40px 0; }}
-
-/* Section Styling */
-.content-section {{
-  margin: 60px 0;
-  padding: 40px;
-  background: var(--glass);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius);
-  box-shadow: 0 12px 30px -20px var(--shadow);
-}}
-.content-section .content-grid {{ align-items: flex-start; }}
-.content-section h2 {{ margin-top: 0; }}
-.content-section ul {{
-  list-style: none;
-  padding: 0;
-  margin: 20px 0 0;
-  display: grid;
-  gap: 16px;
-}}
-.content-section ul li {{
-  padding: 16px 18px;
-  border-radius: calc(var(--radius) - 2px);
-  border: 1px solid var(--card-border);
-  background: var(--card);
-  box-shadow: 0 6px 16px -12px var(--shadow);
-}}
-.content-section blockquote {{
-  margin: 24px 0;
-  padding: 18px 22px;
-  border-left: 4px solid var(--gold);
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: var(--radius);
-}}
-
-/* Forms */
-input, textarea {{
-  width: 100%;
-  padding: 15px;
-  border: 1px solid var(--card-border);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.8);
-  font-family: var(--font-body);
-  margin-bottom: 20px;
-  box-sizing: border-box;
-}}
-input:focus, textarea:focus {{ border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px var(--card-border); }}
+.card-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 2rem; margin: 3rem 0; }}
 
 /* Footer */
 .site-footer {{
-  background: var(--primary-dark);
-  color: var(--cream);
-  padding: 60px 5vw;
-  margin-top: 60px;
+  background: var(--primary-dark); color: var(--cream);
+  padding: 4rem 5vw; margin-top: 6rem;
 }}
 .site-footer a {{ color: var(--gold); opacity: 0.8; }}
 .site-footer a:hover {{ opacity: 1; }}
-.footer-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 40px; }}
-.footer-title {{ font-family: var(--font-heading); font-size: 1.2rem; margin-bottom: 1rem; color: #fff; }}
+.footer-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 3rem; }}
+.footer-title {{ font-family: var(--font-heading); font-size: 1.25rem; margin-bottom: 1.5rem; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; }}
 
-/* Images */
-img {{ max-width: 100%; height: auto; display: block; }}
-.image-frame {{ margin: 0; overflow: hidden; border-radius: var(--radius); box-shadow: 0 10px 40px -10px var(--shadow); }}
+/* Utilities */
+.sr-only {{ position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }}
+.image-frame {{ border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }}
+.image-frame img {{ width: 100%; height: auto; display: block; transition: transform 0.5s ease; }}
+.image-frame:hover img {{ transform: scale(1.03); }}
+
+/* Form Elements */
+input, textarea {{
+  width: 100%; padding: 1rem;
+  border: 1px solid var(--card-border); border-radius: 4px;
+  background: rgba(255,255,255,0.8);
+  font-family: var(--font-body); font-size: 1rem;
+  margin-bottom: 1.5rem; transition: all 0.2s;
+}}
+input:focus, textarea:focus {{ border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(101, 20, 28, 0.1); }}
 
 {theme_overrides}
 """
@@ -1455,37 +1484,13 @@ window.addEventListener('DOMContentLoaded', () => {
 """.lstrip()
 
 
-def _build_search_index(pages: dict[str, dict[str, object]]) -> str:
-    documents = []
-    for slug, page in pages.items():
-        if slug == "": continue
-        
-        # Extract content from sections
-        content = []
-        for section in page.get("sections", []):
-            title = section.get("title", "")
-            body = _read_block(section.get("source_md", ""))
-            content.append(f"{title}\n{body}")
-            
-        documents.append({
-            "title": page.get("title", ""),
-            "url": f"{slug}/index.html",
-            "content": "\n".join(content)
-        })
-    return json.dumps(documents)
-
-
-def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path, hero_heading: str, hero_body: str, sections_html: str, overview_html: str, page_body_html: str, hero_image_src: str = "") -> str:
+def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path, hero_heading: str, hero_body: str, sections_html: str, overview_html: str, page_body_html: str) -> str:
     """Render archive layout with dual-sidebar structure."""
     return f"""
       <section class="archive-layout">
         <aside class="archive-sidebar-left">
           <nav class="archive-nav">
             <h3>The Index</h3>
-            <div class="search-box">
-                <input type="search" id="site-search" placeholder="Search archive..." />
-                <div id="search-results"></div>
-            </div>
             <ul>
               <li><a href="#overview">Overview</a></li>
               <li><a href="#research">Research</a></li>
@@ -1493,58 +1498,20 @@ def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, obje
               <li><a href="#publications">Publications</a></li>
             </ul>
           </nav>
-          <div class="archive-collections">
-            <h3>Collections</h3>
-            <ul>
-              <li>Proto-Assemblies</li>
-              <li>Algorithmic Ecologies</li>
-              <li>Emergent Ethics</li>
-              <li>Field Notes</li>
-            </ul>
-          </div>
         </aside>
         <main class="archive-main">
           <header class="archive-header">
-            <div class="archive-hero">
-              <div class="archive-hero-media">
-                <img src="{_escape(hero_image_src)}" alt="Generative Form" class="archive-hero-image" />
-                <p class="archive-hero-caption">Catalogued visual trace of a synthetic life experiment.</p>
-              </div>
-              <div class="archive-hero-copy">
-                <p class="archive-eyebrow">Institute Dossier</p>
-                <h1>{_escape(hero_heading)}</h1>
-                {hero_body}
-                <div class="archive-hero-metrics">
-                  <div><span>12</span>Active research threads</div>
-                  <div><span>48</span>Archive dossiers</div>
-                  <div><span>6</span>Cross-lab collaborations</div>
-                </div>
-              </div>
-            </div>
+            <h1>{_escape(hero_heading)}</h1>
+            {hero_body}
           </header>
-          <section id="overview" class="archive-overview">
-            {overview_html}
-          </section>
+          {overview_html}
           {sections_html}
           {page_body_html}
         </main>
         <aside class="archive-sidebar-right">
           <div class="archive-metadata">
-            <h3>Archive Status</h3>
-            <ul class="archive-facts">
-              <li><span>214</span>Catalogued artifacts</li>
-              <li><span>19</span>Active field sites</li>
-              <li><span>08</span>Open datasets</li>
-            </ul>
-          </div>
-          <div class="archive-metadata archive-briefing">
-            <h3>Reading Room</h3>
-            <p>Weekly briefings, public notes, and curated dossiers from the institute.</p>
-            <div class="archive-tags">
-              <span>Digital Evolution</span>
-              <span>Swarm Intelligence</span>
-              <span>Bio-Hybrid Systems</span>
-            </div>
+            <h3>Citations</h3>
+            <p>Quick reference metadata appears here.</p>
           </div>
         </aside>
       </section>
@@ -2120,19 +2087,11 @@ def build_site() -> None:
         (SITE_DIR / "rss.xml").write_text(_generate_rss(site, posts), encoding="utf-8")
         (SITE_DIR / "sitemap.xml").write_text(_generate_sitemap(site, pages, posts), encoding="utf-8")
 
-    # Generate Search Index
-    (SITE_DIR / "search.json").write_text(_build_search_index(pages), encoding="utf-8")
-
     for slug, page in sorted(pages.items(), key=lambda item: item[1].get("order", 0)):
         current_path = _page_output_path(slug)
         css_href = _rel_link(current_path, Path("assets/css/style.css"))
         js_href = _rel_link(current_path, Path("assets/js/main.js"))
         extra_css = ""
-        body_scripts = f'<script src="{_escape(js_href)}"></script>'
-        
-        if slug == "" and layout_variant == "archive":
-             body_scripts += f'\n<script src="{_escape(_rel_link(current_path, Path("assets/js/search.js")))}"></script>'
-        
         if slug == "" and layout_variant == "mescia_landing":
             extra_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/landing.css")))}" />'
         # Include extra CSS for new layout variants
@@ -2189,7 +2148,7 @@ def build_site() -> None:
 
         if slug == "":
             if layout_variant == "archive":
-                homepage_body = _render_archive_layout(site, pages, current_path, hero_heading, hero_body, sections_html, overview_html, page_body_html, hero_image_src)
+                homepage_body = _render_archive_layout(site, pages, current_path, hero_heading, hero_body, sections_html, overview_html, page_body_html)
             elif layout_variant == "linkhub":
                 homepage_body = f"""
       <section class="linkhub">
@@ -2317,8 +2276,9 @@ def build_site() -> None:
     </main>
     {footer}
   </div>
-  {body_scripts}
+  <script src="{_escape(js_href)}"></script>
   {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/landing.js")))}"></script>' if slug == "" and layout_variant == "mescia_landing" else ''}
+  {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/optimize.js")))}"></script>' if slug == "" else ''}
 </body>
 </html>
 """

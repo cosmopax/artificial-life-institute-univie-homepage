@@ -5,8 +5,14 @@ page_slug,section,title,kind,order,source_md
 ,programs,Research Programs,section,3,programs.md
 ,methods,Methods and Facilities,section,4,methods.md
 research,,Research,page,10,
-research,research_intro,Research,section,1,research.md
+research,research_hero,Research,hero,0,
+research,research_intro,Research,research_grid,1,research.json
 team,,Team,page,20,
-team,team_intro,Team,section,1,team.md
+team,team_hero,Team,hero,0,
+team,team_intro,Team,team_grid,1,team.json
 publications,,Publications,page,30,
-publications,pubs_intro,Publications,section,1,publications.md
+publications,pubs_hero,Publications,hero,0,
+publications,pubs_intro,Publications,pub_list,1,publications.json
+projects,,Projects,page,40,
+projects,projects_hero,Projects,hero,0,
+projects,projects_intro,Projects,project_grid_v2,1,projects.json

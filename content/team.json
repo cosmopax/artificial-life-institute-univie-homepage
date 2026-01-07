@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Directors and Fellows",
+    "role": "Core Leadership",
+    "bio": "Vision, program strategy, and cross-lab collaboration."
+  },
+  {
+    "name": "Research Cells",
+    "role": "Operational Units",
+    "bio": "Small teams on protocells, synthetic ecologies, and evolutionary computation."
+  },
+  {
+    "name": "Visiting Scholars",
+    "role": "External Collaborators",
+    "bio": "Short residencies for adjacent fields and experimental practice."
+  },
+  {
+    "name": "Public Interface",
+    "role": "Outreach",
+    "bio": "Exhibitions, publications, and translation into civic dialogue."
+  }
+]

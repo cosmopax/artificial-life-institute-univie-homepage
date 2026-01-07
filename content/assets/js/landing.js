@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             this.vx = (Math.random() - 0.5) * config.speed;
             this.vy = (Math.random() - 0.5) * config.speed;
             this.radius = Math.random() * 2 + 0.8;
-            this.baseColor = `rgba(224, 177, 90, ${Math.random() * 0.5 + 0.12})`;
+            this.baseColor = `rgba(212, 160, 85, ${Math.random() * 0.5 + 0.12})`;
         }
 
         update() {
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             ctx.beginPath();
                             ctx.moveTo(node.x, node.y);
                             ctx.lineTo(other.x, other.y);
-                            ctx.strokeStyle = `rgba(101, 20, 28, ${alpha * 0.2})`;
+                            ctx.strokeStyle = `rgba(212, 160, 85, ${alpha * 0.2})`;
                             ctx.stroke();
                         }
                     }
@@ -179,4 +179,80 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     animationId = requestAnimationFrame(animate);
+});
+
+/* --- V2 UI Interactions --- */
+document.addEventListener('DOMContentLoaded', () => {
+    // Burger Menu Logic
+    window.toggleBurgerMenu = function () {
+        const overlay = document.getElementById('burger-menu');
+        if (overlay) {
+            overlay.classList.toggle('active');
+            document.body.style.overflow = overlay.classList.contains('active') ? 'hidden' : '';
+        }
+    };
+
+    // Overlay Logic
+    const overlayTriggers = document.querySelectorAll('[data-type="overlay"]');
+    overlayTriggers.forEach(trigger => {
+        trigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            const overlayId = trigger.getAttribute('data-overlay-id');
+            const overlay = document.getElementById(`overlay-${overlayId}`);
+            if (overlay) {
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        });
+    });
+
+    // Close Overlay Logic
+    document.querySelectorAll('[data-close-overlay]').forEach(closer => {
+        closer.addEventListener('click', () => {
+            const overlay = closer.closest('.project-overlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    });
+
+    // ESC to close all
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.project-overlay.active, .burger-menu-overlay.active').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.body.style.overflow = '';
+        }
+    });
+
+
+    // Scroll Reveal Animation (Intersection Observer)
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('revealed');
+                // Optional: Stop observing once revealed
+                revealObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.scroll-reveal').forEach(el => revealObserver.observe(el));
+
+    // Lazy Load Project/Team Backgrounds
+    const bgImages = document.querySelectorAll('.card-bg, .team-img');
+    bgImages.forEach(bg => {
+        const style = window.getComputedStyle(bg);
+        const urlMatch = style.backgroundImage.match(/url\(['"]?(.*?)['"]?\)/);
+        if (urlMatch && urlMatch[1]) {
+            const img = new Image();
+            img.src = urlMatch[1];
+            img.onload = () => bg.classList.add('loaded');
+        } else {
+            // If no image or already cached, just show it
+            bg.classList.add('loaded');
+        }
+    });
 });
