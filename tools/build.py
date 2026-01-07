@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Any
@@ -55,7 +56,7 @@ PLACEHOLDER_IMAGES = {
     "placeholder-grid.svg": "Project grid placeholder",
 }
 
-NAV_SLUGS = ["", "about", "research", "projects", "digest", "blog", "contact"]
+NAV_SLUGS = ["", "about", "research", "team", "publications", "projects", "digest", "blog", "contact"]
 
 
 def _escape(text: str) -> str:
@@ -284,6 +285,8 @@ def _resolve_image_src(raw_image: str, current_path: Path) -> str:
     image = (raw_image or "").strip()
     if not image:
         image = "placeholder-hero.svg"
+    if image.startswith(("http://", "https://")):
+        return image
     if image.startswith("assets/"):
         return _rel_link(current_path, Path(image))
     return _rel_link(current_path, Path("assets/img") / image)
@@ -569,6 +572,9 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
     burger_nav_items.append(f'<a href="{_escape(cta_href)}">{_escape(cta_text)}</a>')
 
     return f"""
+<div class="construction-banner">
+  <span>🚧 <strong>Beta Protocol:</strong> This platform is evolving live. Content is provisional.</span>
+</div>
 <header class="site-header">
   <div class="header-left">
       <a class="logo" href="{_escape(_rel_page_link(current_path, ""))}">{_escape(logo_text)}</a>
@@ -576,13 +582,14 @@ def _render_header(current_slug: str, pages: dict[str, dict[str, object]], curre
   <nav class="nav">{''.join(nav_links)}</nav>
   <div class="header-right">
       <a class="cta" href="{_escape(cta_href)}">{_escape(cta_text)}</a>
-      <button class="burger-toggle" aria-label="Toggle Navigation" onclick="toggleBurgerMenu()">
+      <button class="burger-toggle" aria-label="Toggle Navigation" aria-controls="burger-menu" aria-expanded="false" onclick="toggleBurgerMenu()">
         <span></span><span></span><span></span>
       </button>
   </div>
   <!-- Burger Overlay -->
-  <div class="burger-menu-overlay" id="burger-menu">
-      <button class="burger-close" onclick="toggleBurgerMenu()">&times;</button>
+  <div class="burger-menu-overlay" id="burger-menu" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Site navigation" aria-describedby="burger-description">
+      <button class="burger-close" type="button" aria-label="Close navigation" onclick="toggleBurgerMenu()">&times;</button>
+      <p id="burger-description" class="sr-only">Site navigation menu. Press Escape to close.</p>
       <nav class="burger-nav">
           {''.join(burger_nav_items)}
       </nav>
@@ -636,7 +643,7 @@ def _render_section(
     if kind == "digest_list":
         return _render_digest_list(section, current_path, digests)
     if kind == "project_grid_v2":
-        return _render_project_grid_v2(section, current_path)
+        return _render_project_grid_v2(section, current_path, pages)
     if kind == "team_grid":
         return _render_team_grid(section, current_path)
     if kind == "pub_list":
@@ -667,80 +674,144 @@ def _render_section(
 </section>
 """
 
-def _render_project_grid_v2(section: dict[str, str], current_path: Path) -> str:
+def _render_project_grid_v2(section: dict[str, str], current_path: Path, pages: dict[str, dict[str, object]]) -> str:
     projects_path = CONTENT_DIR / "projects.json"
     if not projects_path.exists():
         return "<p>Missing projects.json</p>"
     
     projects = json.loads(projects_path.read_text(encoding="utf-8"))
+    if not isinstance(projects, list):
+        return "<p>Invalid projects.json format</p>"
     
-    cards = []
+    upper_cards = []
+    lower_cards = []
     overlays = []
+    overlay_cache: dict[str, str] = {}
+    image_cache: dict[str, str] = {}
+    tile_index = 0
     
     for proj in projects:
         t = proj.get("title", "")
         desc = proj.get("description", "")
         img_raw = proj.get("image", "")
-        img = _resolve_image_src(img_raw, current_path)
-        p_type = proj.get("type", "link")
+        img_key = str(img_raw or "")
+        img = image_cache.get(img_key)
+        if img is None:
+            img = _resolve_image_src(img_raw, current_path)
+            image_cache[img_key] = img
+        p_type = str(proj.get("type") or "link").lower()
         p_id = proj.get("id", "")
-        keywords = proj.get("keywords", [])
-        if isinstance(keywords, list):
-            keywords = ", ".join(keywords)
+        tier = str(proj.get("tier") or ("upper" if p_type == "overlay" else "lower")).lower()
+        deck = proj.get("deck") or []
+        if not isinstance(deck, list):
+            deck = []
+        deck_images = [str(item) for item in deck if item]
+        primary_image = img
+        alt_image = ""
+        if deck_images:
+            primary_image = _resolve_image_src(deck_images[0], current_path)
+            if len(deck_images) > 1:
+                alt_image = _resolve_image_src(deck_images[1], current_path)
+        keywords_raw = proj.get("keywords", "")
+        keywords_list: list[str] = []
+        if isinstance(keywords_raw, list):
+            keywords_list = [str(item) for item in keywords_raw if item]
+        elif keywords_raw:
+            keywords_list = [str(keywords_raw)]
             
         action_attr = ""
         link_target = "#"
         
-        if p_type == "link":
-            link_target = proj.get("target", "#")
-            action_attr = f'target="_blank"' 
-        elif p_type == "overlay":
+        if p_type == "overlay":
             link_target = "#"
             action_attr = f'data-type="overlay" data-overlay-id="{p_id}"'
-            
+        else:
+            target = str(proj.get("target") or "#").strip()
+            if target in pages:
+                link_target = _rel_page_link(current_path, target)
+            else:
+                link_target = target
+            if link_target.startswith(("http://", "https://")):
+                action_attr = 'target="_blank" rel="noopener"'
+        
+        if p_type == "overlay":
             # Pre-render overlay content
             content_file = proj.get("content_file", "")
             overlay_body = ""
             if content_file:
-                overlay_body = _render_markdown(_read_block(content_file))
+                cached = overlay_cache.get(content_file)
+                if cached is None:
+                    cached = _render_markdown(_read_block(content_file))
+                    overlay_cache[content_file] = cached
+                overlay_body = cached
             
+            title_id = f"overlay-title-{p_id}"
+            body_id = f"overlay-body-{p_id}"
             overlays.append(f"""
-<div class="project-overlay" id="overlay-{p_id}">
+<div class="project-overlay" id="overlay-{p_id}" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="{_escape(title_id)}" aria-describedby="{_escape(body_id)}">
   <div class="overlay-backdrop" data-close-overlay></div>
   <div class="overlay-content">
-    <button class="overlay-close" data-close-overlay>&times;</button>
+    <button class="overlay-close" type="button" aria-label="Close project details" data-close-overlay>&times;</button>
     <div class="overlay-scroll">
-      <h2>{_escape(t)}</h2>
+      <h2 id="{_escape(title_id)}">{_escape(t)}</h2>
       <img src="{_escape(img)}" alt="{_escape(t)}" class="overlay-hero">
-      <div class="overlay-body">{overlay_body}</div>
+      <div class="overlay-body" id="{_escape(body_id)}">{overlay_body}</div>
     </div>
   </div>
 </div>""")
 
-        cards.append(f"""
-<a href="{link_target}" class="project-card-v2 scroll-reveal" {action_attr}>
-  <div class="card-bg" data-bg="{_escape(img)}"></div>
-  <div class="card-content">
-    <h3>{_escape(t)}</h3>
-    <p class="keywords">{_escape(keywords)}</p>
-    <div class="card-hover-reveal">
-      <p>{_escape(desc)}</p>
+        keyword_html = "".join(f"<span>{_escape(item)}</span>" for item in keywords_list)
+        keywords_block = f"<div class=\"tile-keywords\">{keyword_html}</div>" if keyword_html else ""
+        action_label = "Expand" if p_type == "overlay" else "Open"
+        if link_target.startswith(("http://", "https://")):
+            action_label = "Visit"
+        alt_media = ""
+        tile_class = f"profile-tile profile-tile--{_escape(tier)} project-card-v2 scroll-reveal"
+        float_offset = f"{(tile_index % 7) * 0.55:.2f}"
+        tile_style_parts = [f"--float-offset: {float_offset};"]
+        if alt_image:
+            alt_media = f"<div class=\"tile-media tile-media--alt\" style=\"background-image: url('{_escape(alt_image)}')\"></div>"
+            tile_class += " has-deck"
+            deck_delay = f"{(tile_index % 4) * 1.5:.1f}s"
+            tile_style_parts.append(f"--deck-delay: {deck_delay};")
+        tile_style = f" style=\"{' '.join(tile_style_parts)}\""
+        card_html = f"""
+<a href="{link_target}" class="{tile_class}" data-tier="{_escape(tier)}"{tile_style} {action_attr}>
+  <span class="tile-stack tile-stack--one"></span>
+  <span class="tile-stack tile-stack--two"></span>
+  <div class="tile-surface">
+    <div class="tile-media" style="background-image: url('{_escape(primary_image)}')"></div>
+    {alt_media}
+    <div class="tile-scrim"></div>
+    <div class="tile-content">
+      <h3>{_escape(t)}</h3>
+      {keywords_block}
+      <span class="tile-action">{action_label}</span>
     </div>
   </div>
-</a>""")
+</a>"""
+        tile_index += 1
+        if tier == "upper":
+            upper_cards.append(card_html)
+        else:
+            lower_cards.append(card_html)
 
-    grid_html = "".join(cards)
+    upper_html = "".join(upper_cards)
+    lower_html = "".join(lower_cards)
     overlays_html = "".join(overlays)
     
     section_id = _escape(section.get("section_id", "projects"))
     heading = _escape(section.get("title", "Projects"))
+    upper_row = f"<div class=\"profile-row profile-row--upper\">{upper_html}</div>" if upper_html else ""
+    lower_row = f"<div class=\"profile-row profile-row--lower\">{lower_html}</div>" if lower_html else ""
     
     return f"""
 <section class="content-section project-grid-section" id="{section_id}">
   <div class="v2-grid-container">
     <h2>{heading}</h2>
-    <div class="project-grid-v2-wrapper">
-      {grid_html}
+    <div class="profile-tiles">
+      {upper_row}
+      {lower_row}
     </div>
   </div>
   {overlays_html}
@@ -1012,10 +1083,27 @@ def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, objec
     footer = _render_footer(site, pages, current_path, links)
     back_link = _rel_page_link(current_path, "digest")
     body_html = _render_markdown(_read_block(digest.get("source_md", "")))
+    
+    # Search UI
+    search_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/search.css")))}" />'
+    search_ui = f"""
+  <div class="search-container">
+    <div class="search-box">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search..." autocomplete="off" />
+        <span class="search-shortcut">Ctrl+K</span>
+      </div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+"""
+    
     doc = f"""<!doctype html>
 <html lang=\"en\">
-{_render_head(digest.get('title', ''), css_href, site.get('meta_description', ''))}
+{_render_head(digest.get('title', ''), css_href, site.get('meta_description', ''), extra_css=search_css)}
 <body data-newsletter-mode="{_escape(site.get('newsletter_mode', 'local'))}" data-newsletter-url="{_escape(site.get('newsletter_provider_url', ''))}">
+  {search_ui}
   <div class="page-shell">
     {header}
     <main>
@@ -1036,6 +1124,7 @@ def _render_digest_page(digest: dict[str, str], pages: dict[str, dict[str, objec
     {footer}
   </div>
   <script src="{_escape(_rel_link(current_path, Path('assets/js/main.js')))}"></script>
+  <script src="{_escape(_rel_link(current_path, Path("assets/js/search.js")))}"></script>
 </body>
 </html>
 """
@@ -1053,10 +1142,27 @@ def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]])
     footer = _render_footer(site, pages, current_path, _read_links())
     back_link = _rel_page_link(current_path, "blog")
     body_html = _render_paragraphs(post.get("body", ""))
+    
+    # Search UI
+    search_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/search.css")))}" />'
+    search_ui = f"""
+  <div class="search-container">
+    <div class="search-box">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search..." autocomplete="off" />
+        <span class="search-shortcut">Ctrl+K</span>
+      </div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+"""
+    
     doc = f"""<!doctype html>
 <html lang=\"en\">
-{_render_head(post.get('title', ''), css_href, _read_site_config().get('meta_description', ''))}
+{_render_head(post.get('title', ''), css_href, _read_site_config().get('meta_description', ''), extra_css=search_css)}
 <body data-newsletter-mode="{_escape(_read_site_config().get('newsletter_mode', 'local'))}" data-newsletter-url="{_escape(_read_site_config().get('newsletter_provider_url', ''))}">
+  {search_ui}
   <div class="page-shell">
     {header}
     <main>
@@ -1077,6 +1183,7 @@ def _render_blog_post(post: dict[str, str], pages: dict[str, dict[str, object]])
     {footer}
   </div>
   <script src="{_escape(_rel_link(current_path, Path('assets/js/main.js')))}"></script>
+  <script src="{_escape(_rel_link(current_path, Path("assets/js/search.js")))}"></script>
 </body>
 </html>
 """
@@ -1278,8 +1385,448 @@ main {{ flex: 1; padding-top: 80px; width: 100%; max-width: var(--max-width); ma
 .nav a:hover, .nav a.active {{ color: var(--primary); }}
 .nav a::after {{ display: none; }} /* Disable underline for nav items */
 
+/* Burger Menu */
+.header-right {{ display: flex; align-items: center; gap: 1rem; }}
+.burger-toggle {{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 30px;
+  height: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 1001;
+}}
+.burger-toggle span {{
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--text-main);
+  transition: transform 0.3s ease;
+}}
+.burger-menu-overlay {{
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: rgba(10, 10, 10, 0.95);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6rem 2rem 3rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}}
+.burger-menu-overlay.active {{
+  opacity: 1;
+  pointer-events: all;
+}}
+.burger-close {{
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  font-size: 3rem;
+  background: none;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+}}
+.burger-nav {{
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  text-align: center;
+}}
+.burger-nav a {{
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  color: var(--text-main);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}}
+.burger-nav a:hover {{
+  color: var(--gold);
+}}
+.burger-nav hr {{
+  width: 50%;
+  margin: 1rem auto;
+  border: 0;
+  border-top: 1px solid var(--card-border);
+}}
+
+/* Profile Tiles */
+.profile-tiles {{
+  display: grid;
+  gap: 2rem;
+  margin-top: 2.5rem;
+}}
+.profile-row {{
+  gap: 1.5rem;
+}}
+.profile-row--upper {{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  perspective: 1200px;
+}}
+.profile-row--lower {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}}
+.profile-tile {{
+  --tile-tilt-x: 0deg;
+  --tile-tilt-y: 0deg;
+  --glow-x: 50%;
+  --glow-y: 25%;
+  --float-x: 0px;
+  --float-y: 0px;
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 240px;
+  border-radius: 18px;
+  overflow: visible;
+  color: #f8f7f4;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 24px 50px -30px rgba(0, 0, 0, 0.6);
+  transform-style: preserve-3d;
+  transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease, flex 0.45s ease;
+  transform: translate3d(var(--float-x), var(--float-y), 0) rotateX(var(--tile-tilt-x)) rotateY(var(--tile-tilt-y));
+}}
+.profile-tile::before {{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--glow-x) var(--glow-y), rgba(255, 255, 255, 0.35), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 1;
+}}
+.profile-tile::after {{
+  content: "";
+  position: absolute;
+  inset: 12% 6% auto 6%;
+  height: 55%;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+  filter: blur(28px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 1;
+}}
+.profile-tile:hover {{
+  transform: translate3d(var(--float-x), calc(var(--float-y) - 10px), 0) rotateX(var(--tile-tilt-x)) rotateY(var(--tile-tilt-y));
+  box-shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.7);
+  border-color: rgba(255, 255, 255, 0.35);
+}}
+.profile-tile:hover::before,
+.profile-tile:hover::after {{
+  opacity: 1;
+}}
+.profile-row--upper .profile-tile {{
+  flex: 1 1 240px;
+  min-height: 320px;
+  --tile-tilt-x: 4deg;
+  --tile-tilt-y: 0deg;
+}}
+.profile-row--upper .profile-tile:hover {{
+  flex: 1.55 1 240px;
+}}
+.profile-row--lower .profile-tile {{
+  min-height: 210px;
+}}
+.tile-stack {{
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: rgba(15, 15, 15, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 40px -35px rgba(0, 0, 0, 0.6);
+  transform-style: preserve-3d;
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.4s ease, opacity 0.4s ease;
+}}
+.tile-stack--one {{
+  transform: translate3d(0, 14px, -40px) scale(0.98);
+  opacity: 0.8;
+}}
+.tile-stack--two {{
+  transform: translate3d(0, 26px, -80px) scale(0.95);
+  opacity: 0.6;
+}}
+.profile-tile:hover .tile-stack--one {{
+  transform: translate3d(0, 18px, -40px) scale(0.98);
+}}
+.profile-tile:hover .tile-stack--two {{
+  transform: translate3d(0, 30px, -80px) scale(0.95);
+}}
+.tile-surface {{
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+}}
+.tile-media {{
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.6) saturate(0.95);
+  transition: transform 0.6s ease, filter 0.4s ease;
+  z-index: 0;
+}}
+.tile-media--alt {{
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  z-index: 0;
+}}
+.profile-tile.has-deck .tile-media {{
+  animation: deck-base 12s ease-in-out infinite;
+  animation-delay: var(--deck-delay, 0s);
+}}
+.profile-tile.has-deck .tile-media--alt {{
+  animation: deck-alt 12s ease-in-out infinite;
+  animation-delay: calc(var(--deck-delay, 0s) + 6s);
+}}
+.profile-row--upper .tile-media {{
+  animation-name: deck-base, media-drift;
+  animation-duration: 12s, 16s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: var(--deck-delay, 0s), 0s;
+}}
+.profile-row--upper .tile-media--alt {{
+  animation-name: deck-alt, media-drift;
+  animation-duration: 12s, 16s;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-delay: calc(var(--deck-delay, 0s) + 6s), 0s;
+}}
+.profile-tile:hover .tile-media {{
+  transform: scale(1.06);
+  filter: brightness(0.5) saturate(1.1);
+}}
+.profile-tile:hover .tile-media--alt {{
+  opacity: 1;
+}}
+.tile-scrim {{
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.7) 70%);
+  transform: translateZ(10px);
+  z-index: 1;
+}}
+.tile-content {{
+  position: relative;
+  z-index: 2;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transform: translateZ(26px);
+}}
+.tile-content h3 {{
+  margin: 0;
+  font-size: 1.5rem;
+  color: #f8f7f4;
+}}
+.tile-keywords {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}}
+.tile-keywords span {{
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.45);
+}}
+.tile-action {{
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}}
+
+@keyframes deck-base {{
+  0%, 45% {{ opacity: 1; }}
+  55%, 100% {{ opacity: 0; }}
+}}
+
+@keyframes deck-alt {{
+  0%, 45% {{ opacity: 0; }}
+  55%, 100% {{ opacity: 1; }}
+}}
+
+@keyframes media-drift {{
+  0%, 100% {{ background-position: 50% 50%; }}
+  50% {{ background-position: 55% 45%; }}
+}}
+
+/* Project Overlays */
+.project-overlay {{
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  perspective: 1200px;
+}}
+.project-overlay.active {{
+  opacity: 1;
+  pointer-events: all;
+}}
+.overlay-backdrop {{
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}}
+.overlay-content {{
+  position: relative;
+  width: min(900px, 92vw);
+  max-height: 85vh;
+  background: var(--paper);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(24px) scale(0.92) rotateX(-8deg);
+  transform-origin: var(--origin-x, 50%) var(--origin-y, 20%);
+  transition: transform 0.45s ease, opacity 0.35s ease;
+}}
+.project-overlay.active .overlay-backdrop {{
+  opacity: 1;
+}}
+.project-overlay.active .overlay-content {{
+  opacity: 1;
+  transform: translateY(0) scaleY(1) rotateX(0deg);
+}}
+.overlay-close {{
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  font-size: 2rem;
+  background: none;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  z-index: 10;
+}}
+.overlay-scroll {{
+  overflow-y: auto;
+  padding: 2rem;
+}}
+.overlay-hero {{
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}}
+.overlay-body {{
+  font-family: var(--font-body);
+  line-height: 1.6;
+}}
+.overlay-body h3 {{
+  font-family: var(--font-heading);
+  margin-top: 1.5rem;
+}}
+
+/* Scroll Reveal */
+.scroll-reveal {{
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}}
+.scroll-reveal.revealed {{
+  opacity: 1;
+  transform: translateY(0);
+}}
+
+@media (max-width: 900px) {{
+  .profile-row--upper .profile-tile {{
+    flex: 1 1 100%;
+  }}
+  .profile-row--upper .profile-tile:hover {{
+    flex: 1 1 100%;
+  }}
+}}
+
+@media (max-width: 768px) {{
+  .burger-nav a {{
+    font-size: 1.5rem;
+  }}
+  .burger-close {{
+    top: 1.5rem;
+    right: 1.25rem;
+    font-size: 2.5rem;
+  }}
+}}
+
+@media (prefers-reduced-motion: reduce) {{
+  .profile-tile,
+  .overlay-content,
+  .scroll-reveal {{
+    transition: none;
+    transform: none;
+  }}
+  .profile-tile:hover {{
+    transform: none;
+  }}
+  .tile-media,
+  .tile-media--alt {{
+    transition: none;
+    animation: none;
+  }}
+}}
+
 /* Components */
-.card {{
+.construction-banner {{
+  background: var(--gold);
+  color: #000;
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  z-index: 9999;
+}}
+
+.card, .profile-card {{
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: var(--radius);
@@ -1373,6 +1920,259 @@ function smoothScroll() {
       event.preventDefault();
       target.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth' });
     });
+  });
+}
+
+function setupScrollReveal() {
+  const revealItems = document.querySelectorAll('.scroll-reveal');
+  if (!revealItems.length) return;
+  if (prefersReduced) {
+    revealItems.forEach((item) => item.classList.add('revealed'));
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  revealItems.forEach((item) => observer.observe(item));
+}
+
+function setupTileBackgrounds() {
+  document.querySelectorAll('[data-bg]').forEach((node) => {
+    const url = node.getAttribute('data-bg');
+    if (!url || node.style.backgroundImage) return;
+    node.style.backgroundImage = `url('${url}')`;
+  });
+}
+
+function setupTileTilt() {
+  if (prefersReduced) return;
+  const tiles = document.querySelectorAll('.profile-row--upper .profile-tile');
+  tiles.forEach((tile) => {
+    let frame = null;
+    const handleMove = (event) => {
+      const rect = tile.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      const tiltX = (0.5 - y) * 10;
+      const tiltY = (x - 0.5) * 12;
+      const glowX = `${(x * 100).toFixed(1)}%`;
+      const glowY = `${(y * 100).toFixed(1)}%`;
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        tile.style.setProperty('--tile-tilt-x', `${tiltX.toFixed(2)}deg`);
+        tile.style.setProperty('--tile-tilt-y', `${tiltY.toFixed(2)}deg`);
+        tile.style.setProperty('--glow-x', glowX);
+        tile.style.setProperty('--glow-y', glowY);
+      });
+    };
+    const handleLeave = () => {
+      if (frame) cancelAnimationFrame(frame);
+      tile.style.setProperty('--tile-tilt-x', '0deg');
+      tile.style.setProperty('--tile-tilt-y', '0deg');
+      tile.style.setProperty('--glow-x', '50%');
+      tile.style.setProperty('--glow-y', '25%');
+    };
+    tile.addEventListener('mousemove', handleMove);
+    tile.addEventListener('mouseleave', handleLeave);
+  });
+}
+
+function setupTileFloat() {
+  if (prefersReduced) return;
+  const tiles = Array.from(document.querySelectorAll('.profile-tile'));
+  if (!tiles.length) return;
+  let raf = null;
+  const animate = (time) => {
+    tiles.forEach((tile, index) => {
+      const offset = parseFloat(tile.style.getPropertyValue('--float-offset')) || (index * 0.6);
+      if (tile.matches(':hover')) {
+        tile.style.setProperty('--float-y', '0px');
+        tile.style.setProperty('--float-x', '0px');
+        return;
+      }
+      const tier = tile.dataset.tier || 'lower';
+      const amp = tier === 'upper' ? 6 : 3;
+      const ampX = tier === 'upper' ? 4 : 2;
+      const speed = tier === 'upper' ? 0.001 : 0.0008;
+      const y = Math.sin(time * speed + offset) * amp;
+      const x = Math.cos(time * speed + offset) * ampX;
+      tile.style.setProperty('--float-y', `${y.toFixed(2)}px`);
+      tile.style.setProperty('--float-x', `${x.toFixed(2)}px`);
+    });
+    raf = requestAnimationFrame(animate);
+  };
+  const restart = () => {
+    if (!raf) {
+      raf = requestAnimationFrame(animate);
+    }
+  };
+  const stop = () => {
+    if (raf) {
+      cancelAnimationFrame(raf);
+      raf = null;
+    }
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stop();
+    } else {
+      restart();
+    }
+  });
+  restart();
+}
+
+function setupOverlays() {
+  const focusableSelector = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex=\"-1\"])';
+  const focusCleanupMap = new WeakMap();
+  const focusReturnMap = new WeakMap();
+  const burgerToggle = document.querySelector('.burger-toggle');
+  if (burgerToggle) {
+    burgerToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  const getFocusable = (container) => Array.from(container.querySelectorAll(focusableSelector));
+
+  const trapFocus = (container) => {
+    const focusables = getFocusable(container);
+    if (!focusables.length) {
+      return () => {};
+    }
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const handler = (event) => {
+      if (event.key !== 'Tab') return;
+      if (focusables.length === 1) {
+        event.preventDefault();
+        first.focus();
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    container.addEventListener('keydown', handler);
+    return () => container.removeEventListener('keydown', handler);
+  };
+
+  const openOverlay = (overlay, trigger) => {
+    if (!overlay || overlay.classList.contains('active')) return;
+    if (trigger && overlay) {
+      const rect = trigger.getBoundingClientRect();
+      const originX = ((rect.left + rect.width / 2) / window.innerWidth) * 100;
+      const originY = ((rect.top + rect.height / 2) / window.innerHeight) * 100;
+      overlay.style.setProperty('--origin-x', `${originX.toFixed(2)}%`);
+      overlay.style.setProperty('--origin-y', `${Math.min(originY, 60).toFixed(2)}%`);
+    }
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    focusReturnMap.set(overlay, trigger || document.activeElement);
+    const cleanup = trapFocus(overlay);
+    focusCleanupMap.set(overlay, cleanup);
+    const focusables = getFocusable(overlay);
+    if (focusables.length) {
+      focusables[0].focus({ preventScroll: true });
+    } else {
+      overlay.setAttribute('tabindex', '-1');
+      overlay.focus({ preventScroll: true });
+    }
+  };
+
+  const closeOverlay = (overlay) => {
+    if (!overlay || !overlay.classList.contains('active')) return;
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    const cleanup = focusCleanupMap.get(overlay);
+    if (cleanup) cleanup();
+    focusCleanupMap.delete(overlay);
+    const returnTarget = focusReturnMap.get(overlay);
+    focusReturnMap.delete(overlay);
+    if (!document.querySelector('.project-overlay.active, .burger-menu-overlay.active')) {
+      document.body.style.overflow = '';
+    }
+    if (returnTarget && typeof returnTarget.focus === 'function') {
+      returnTarget.focus({ preventScroll: true });
+    }
+  };
+
+  window.toggleBurgerMenu = function () {
+    const overlay = document.getElementById('burger-menu');
+    if (overlay) {
+      if (overlay.classList.contains('active')) {
+        closeOverlay(overlay);
+        if (burgerToggle) burgerToggle.setAttribute('aria-expanded', 'false');
+      } else {
+        openOverlay(overlay, burgerToggle);
+        if (burgerToggle) burgerToggle.setAttribute('aria-expanded', 'true');
+      }
+    }
+  };
+
+  document.querySelectorAll('[data-type=\"overlay\"]').forEach((trigger) => {
+    trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      const overlayId = trigger.getAttribute('data-overlay-id');
+      const overlay = document.getElementById(`overlay-${overlayId}`);
+      if (overlay) {
+        openOverlay(overlay, trigger);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-close-overlay]').forEach((closer) => {
+    closer.addEventListener('click', () => {
+      const overlay = closer.closest('.project-overlay');
+      if (overlay) {
+        closeOverlay(overlay);
+      }
+    });
+  });
+
+  document.querySelectorAll('.project-overlay, .burger-menu-overlay').forEach((overlay) => {
+    overlay.addEventListener('pointerdown', (event) => {
+      if (overlay.classList.contains('project-overlay')) {
+        if (event.target.classList.contains('overlay-backdrop') || event.target === overlay) {
+          closeOverlay(overlay);
+        }
+        return;
+      }
+      if (event.target === overlay) {
+        closeOverlay(overlay);
+        if (burgerToggle) burgerToggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  });
+
+  const burgerMenu = document.getElementById('burger-menu');
+  if (burgerMenu) {
+    burgerMenu.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        closeOverlay(burgerMenu);
+        if (burgerToggle) burgerToggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      document.querySelectorAll('.project-overlay.active, .burger-menu-overlay.active').forEach((overlay) => {
+        closeOverlay(overlay);
+        if (overlay.id === 'burger-menu' && burgerToggle) {
+          burgerToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
   });
 }
 
@@ -1475,8 +2275,27 @@ function setupContactForm() {
   });
 }
 
+
+function setupSiteNotice() {
+  const body = document.body;
+  const noticeText = body.dataset.notice;
+  if (!noticeText) return;
+
+  const banner = document.createElement('div');
+  banner.className = 'site-notice-banner';
+  banner.style.cssText = 'background: #ffb84d; color: #000; padding: 10px; text-align: center; font-weight: bold; position: relative; z-index: 9999;';
+  banner.innerHTML = `<span>🚧 ${noticeText}</span><button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; font:inherit; cursor:pointer; margin-left:1rem; font-size:1.2em;">&times;</button>`;
+  document.body.prepend(banner);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  setupSiteNotice();
   revealOnScroll();
+  setupScrollReveal();
+  setupTileBackgrounds();
+  setupTileTilt();
+  setupTileFloat();
+  setupOverlays();
   smoothScroll();
   setupNewsletter();
   setupContactForm();
@@ -2082,6 +2901,19 @@ def build_site() -> None:
     _write_contact_php()
     _write_data_protection()
     
+    # BibTeX Automation
+    bib_path = CONTENT_DIR / "publications.bib"
+    if bib_path.exists():
+        import subprocess
+        print(f"📚 Found bibliography: {bib_path.name}")
+        parser_script = BASE_DIR / "tools" / "parse_bibtex.py"
+        output_md = BLOCKS_DIR / "publications.md"
+        try:
+            subprocess.run([sys.executable, str(parser_script), str(bib_path), str(output_md)], check=True)
+            print("   ✅ Generated publications.md")
+        except Exception as e:
+            print(f"   ❌ BibTeX parsing failed: {e}")
+
     # SEO & Syndication
     if site.get("domain"):
         (SITE_DIR / "rss.xml").write_text(_generate_rss(site, posts), encoding="utf-8")
@@ -2225,9 +3057,9 @@ def build_site() -> None:
             <h3>Dynamic systems, grounded experiments</h3>
             <p>Placeholder for a concise, compelling institute statement.</p>
             <div class="hero-metrics">
-              <div><span>12+</span>Active research threads</div>
-              <div><span>4</span>Cross-faculty labs</div>
-              <div><span>20</span>Years of ALife history</div>
+              <div><span>Global</span>Active Research Network</div>
+              
+              
             </div>
           </div>
         </div>
@@ -2253,9 +3085,9 @@ def build_site() -> None:
             <h3>Dynamic systems, grounded experiments</h3>
             <p>Placeholder for a concise, compelling institute statement.</p>
             <div class="hero-metrics">
-              <div><span>12+</span>Active research threads</div>
-              <div><span>4</span>Cross-faculty labs</div>
-              <div><span>20</span>Years of ALife history</div>
+              <div><span>Global</span>Active Research Network</div>
+              
+              
             </div>
           </div>
         </div>
@@ -2265,10 +3097,28 @@ def build_site() -> None:
       {page_body_html}
 """
 
+        # Add search CSS
+        search_css = f'<link rel="stylesheet" href="{_escape(_rel_link(current_path, Path("assets/css/search.css")))}" />'
+        
+        # Search UI HTML
+        search_ui = f"""
+  <div class="search-container">
+    <div class="search-box">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search..." autocomplete="off" />
+        <span class="search-shortcut">Ctrl+K</span>
+      </div>
+      <div id="search-results"></div>
+    </div>
+  </div>
+"""
+        
         doc = f"""<!doctype html>
 <html lang=\"en\">
-{_render_head(page['title'], css_href, meta_description, extra_css=extra_css)}
+{_render_head(page['title'], css_href, meta_description, extra_css=extra_css + search_css)}
 <body data-newsletter-mode="{_escape(site.get('newsletter_mode', 'local'))}" data-newsletter-url="{_escape(site.get('newsletter_provider_url', ''))}">
+  {search_ui}
   <div class="page-shell">
     {header}
     <main>
@@ -2279,6 +3129,7 @@ def build_site() -> None:
   <script src="{_escape(js_href)}"></script>
   {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/landing.js")))}"></script>' if slug == "" and layout_variant == "mescia_landing" else ''}
   {f'<script src="{_escape(_rel_link(current_path, Path("assets/js/optimize.js")))}"></script>' if slug == "" else ''}
+  <script src="{_escape(_rel_link(current_path, Path("assets/js/search.js")))}"></script>
 </body>
 </html>
 """
