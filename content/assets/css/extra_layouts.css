@@ -125,6 +125,115 @@
   color: var(--bordeaux);
 }
 
+.archive-hero {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1.2fr);
+  gap: 32px;
+  align-items: center;
+}
+
+.archive-hero-media {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.archive-hero-caption {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.archive-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.75rem;
+  color: var(--gold);
+  margin: 0 0 12px;
+}
+
+.archive-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.archive-hero-metrics span {
+  display: block;
+  font-family: var(--archive-font-heading);
+  font-size: 1.4rem;
+  color: var(--bordeaux);
+}
+
+.archive-overview {
+  margin-top: 30px;
+}
+
+.archive-collections h3 {
+  color: var(--bordeaux);
+  border-bottom: 1px solid var(--gold);
+  padding-bottom: 6px;
+  margin: 32px 0 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.archive-collections ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.archive-facts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.archive-facts span {
+  display: inline-block;
+  min-width: 32px;
+  font-weight: 600;
+  color: var(--bordeaux);
+}
+
+.archive-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.archive-tags span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--archive-border);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.archive-briefing {
+  margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .archive-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Swarm Layout Styles */
 .swarm-layout {
   width: 100%;

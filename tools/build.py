@@ -1194,6 +1194,17 @@ main {{ flex: 1; padding-top: 80px; width: 100%; max-width: var(--max-width); ma
 .nav {{ display: flex; gap: 30px; }}
 .nav a {{ color: var(--text-muted); text-transform: uppercase; font-size: 13px; letter-spacing: 0.1em; font-weight: 600; }}
 .nav a:hover, .nav a.active {{ color: var(--primary); }}
+.cta {{
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  font-weight: 600;
+}}
+.cta:hover {{ background: var(--primary); color: #fff; }}
 
 /* Components */
 .card, .profile-card {{
@@ -1234,6 +1245,39 @@ main {{ flex: 1; padding-top: 80px; width: 100%; max-width: var(--max-width); ma
 }}
 
 .card-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; margin: 40px 0; }}
+
+/* Section Styling */
+.content-section {{
+  margin: 60px 0;
+  padding: 40px;
+  background: var(--glass);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 30px -20px var(--shadow);
+}}
+.content-section .content-grid {{ align-items: flex-start; }}
+.content-section h2 {{ margin-top: 0; }}
+.content-section ul {{
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+  display: grid;
+  gap: 16px;
+}}
+.content-section ul li {{
+  padding: 16px 18px;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  box-shadow: 0 6px 16px -12px var(--shadow);
+}}
+.content-section blockquote {{
+  margin: 24px 0;
+  padding: 18px 22px;
+  border-left: 4px solid var(--gold);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius);
+}}
 
 /* Forms */
 input, textarea {{
@@ -1449,21 +1493,58 @@ def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, obje
               <li><a href="#publications">Publications</a></li>
             </ul>
           </nav>
+          <div class="archive-collections">
+            <h3>Collections</h3>
+            <ul>
+              <li>Proto-Assemblies</li>
+              <li>Algorithmic Ecologies</li>
+              <li>Emergent Ethics</li>
+              <li>Field Notes</li>
+            </ul>
+          </div>
         </aside>
         <main class="archive-main">
           <header class="archive-header">
-            <img src="{_escape(hero_image_src)}" alt="Generative Form" class="archive-hero-image" />
-            <h1>{_escape(hero_heading)}</h1>
-            {hero_body}
+            <div class="archive-hero">
+              <div class="archive-hero-media">
+                <img src="{_escape(hero_image_src)}" alt="Generative Form" class="archive-hero-image" />
+                <p class="archive-hero-caption">Catalogued visual trace of a synthetic life experiment.</p>
+              </div>
+              <div class="archive-hero-copy">
+                <p class="archive-eyebrow">Institute Dossier</p>
+                <h1>{_escape(hero_heading)}</h1>
+                {hero_body}
+                <div class="archive-hero-metrics">
+                  <div><span>12</span>Active research threads</div>
+                  <div><span>48</span>Archive dossiers</div>
+                  <div><span>6</span>Cross-lab collaborations</div>
+                </div>
+              </div>
+            </div>
           </header>
-          {overview_html}
+          <section id="overview" class="archive-overview">
+            {overview_html}
+          </section>
           {sections_html}
           {page_body_html}
         </main>
         <aside class="archive-sidebar-right">
           <div class="archive-metadata">
-            <h3>Citations</h3>
-            <p>Quick reference metadata appears here.</p>
+            <h3>Archive Status</h3>
+            <ul class="archive-facts">
+              <li><span>214</span>Catalogued artifacts</li>
+              <li><span>19</span>Active field sites</li>
+              <li><span>08</span>Open datasets</li>
+            </ul>
+          </div>
+          <div class="archive-metadata archive-briefing">
+            <h3>Reading Room</h3>
+            <p>Weekly briefings, public notes, and curated dossiers from the institute.</p>
+            <div class="archive-tags">
+              <span>Digital Evolution</span>
+              <span>Swarm Intelligence</span>
+              <span>Bio-Hybrid Systems</span>
+            </div>
           </div>
         </aside>
       </section>

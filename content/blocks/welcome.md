@@ -1,5 +1,5 @@
 # Artificial Life Institute
 
-We are a research hub at the University of Vienna dedicated to understanding how life-like behavior emerges in synthetic systems. Our work spans protocell dynamics, artificial ecologies, and the ethics of engineered cognition.
+We steward a living archive of synthetic life research. From protocell ecologies to machine coevolution, we document how lifelike behavior emerges, stabilizes, and transforms when biology meets computation.
 
-Explore our research programs, publications, and collaborations as we map the frontier between the biological and the computational.
+Our institute blends theory, experimental platforms, and cultural history. We maintain research programs, an open knowledge stack, and public-facing dissemination that keeps emergent life legible and accountable.
