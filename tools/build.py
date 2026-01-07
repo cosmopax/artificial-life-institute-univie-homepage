@@ -299,7 +299,12 @@ def _read_control() -> dict[str, dict[str, object]]:
     with CONTROL_CSV.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
-            data = {key: (value or "").strip() for key, value in row.items()}
+            data = {}
+            for key, value in row.items():
+                if isinstance(value, list):
+                    value = " ".join(value)
+                data[key] = (value or "").strip()
+            
             status = (data.get("status") or "").lower()
             if status in {"draft", "hidden", "archived", "inactive"}:
                 continue
@@ -895,7 +900,36 @@ def _render_team_grid(section: dict[str, str], current_path: Path) -> str:
         name = _escape(p.get("name", ""))
         role = _escape(p.get("role", ""))
         bio = _escape(p.get("bio", ""))
+        email = p.get("email", "")
         img = _resolve_image_src(p.get("image", ""), current_path)
+        
+        # Links
+        links_html = ""
+        links = p.get("links", {})
+        if links:
+            link_items = []
+            for platform, url in links.items():
+                platform_name = platform.upper() if platform in ['orcid'] else platform.title()
+                link_items.append(f'<a href="{_escape(url)}" target="_blank" rel="noopener" class="team-link">{_escape(platform_name)}</a>')
+            links_html = '<div class="team-links">' + ' · '.join(link_items) + '</div>'
+        
+        # Research interests
+        interests = p.get("interests", [])
+        interests_html = ""
+        if interests:
+            tags = "".join(f'<span class="interest-tag">{_escape(i)}</span>' for i in interests[:4])
+            interests_html = f'<div class="team-interests">{tags}</div>'
+        
+        # Email
+        email_html = ""
+        if email:
+            email_html = f'<div class="team-email"><a href="mailto:{_escape(email)}">{_escape(email)}</a></div>'
+        
+        # Note (for special cases like AI agents or institutional entries)
+        note = p.get("note", "")
+        note_html = ""
+        if note:
+            note_html = f'<div class="team-note">{_escape(note)}</div>'
         
         cards.append(f"""
 <div class="team-card scroll-reveal">
@@ -904,6 +938,10 @@ def _render_team_grid(section: dict[str, str], current_path: Path) -> str:
     <h3>{name}</h3>
     <span class="role">{role}</span>
     <p>{bio}</p>
+    {interests_html}
+    {links_html}
+    {email_html}
+    {note_html}
   </div>
 </div>""")
 
@@ -920,7 +958,6 @@ def _render_team_grid(section: dict[str, str], current_path: Path) -> str:
   </div>
 </section>
 """
-
 def _render_pub_list(section: dict[str, str], current_path: Path) -> str:
     path = CONTENT_DIR / "publications.json"
     if not path.exists(): return "<p>Missing publications.json</p>"
@@ -968,6 +1005,32 @@ def _render_research_grid(section: dict[str, str], current_path: Path) -> str:
         teaser = _escape(r.get("teaser", ""))
         desc = _escape(r.get("description", ""))
         img = _resolve_image_src(r.get("image", ""), current_path)
+        status = r.get("status", "")
+        funding = r.get("funding", "")
+        duration = r.get("duration", "")
+        team = r.get("team", [])
+        
+        # Status badge
+        status_html = ""
+        if status:
+            status_class = "exploratory" if status.lower() == "exploratory" else ""
+            status_html = f'<span class="research-status {status_class}">{_escape(status)}</span>'
+        
+        # Metadata section
+        meta_html = ""
+        meta_parts = []
+        if duration:
+            meta_parts.append(f'<strong>Duration:</strong> {_escape(duration)}')
+        if funding:
+            meta_parts.append(f'<strong>Funding:</strong> {_escape(funding)}')
+        if team:
+            team_str = ", ".join(team[:3])
+            if len(team) > 3:
+                team_str += f" +{len(team)-3} more"
+            meta_parts.append(f'<strong>Team:</strong> {_escape(team_str)}')
+        
+        if meta_parts or status_html:
+            meta_html = f'<div class="research-meta">{status_html}{"".join(f"<div>{p}</div>" for p in meta_parts)}</div>'
         
         cards.append(f"""
 <div class="research-card scroll-reveal">
@@ -978,6 +1041,7 @@ def _render_research_grid(section: dict[str, str], current_path: Path) -> str:
     <details>
       <summary>Read More</summary>
       <p class="desc">{desc}</p>
+      {meta_html}
     </details>
   </div>
 </div>""")
@@ -995,7 +1059,6 @@ def _render_research_grid(section: dict[str, str], current_path: Path) -> str:
   </div>
 </section>
 """
-
 def _render_linkhub_links(links: list[dict[str, str]]) -> str:
     if not links:
         return ""

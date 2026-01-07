@@ -620,4 +620,63 @@ body {
   }
 
   /* Enforce burger everywhere */
+}  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.team-email a {
+  color: #a1a1aa;
+  text-decoration: none;
+}
+
+.team-note {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(229, 229, 229, 0.05);
+  border-left: 2px solid rgba(229, 229, 229, 0.3);
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #a1a1aa;
+}
+
+/* Enhanced Research Cards */
+.research-card {
+  position: relative;
+}
+
+.research-meta {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(229, 229, 229, 0.1);
+  font-size: 0.85rem;
+  color: #a1a1aa;
+}
+
+.research-status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.5rem;
+}
+
+.research-status.exploratory {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.research-team {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.research-funding {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
 }
