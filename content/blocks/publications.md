@@ -2,6 +2,17 @@
 
 Selected publications and working papers capture our focus on synthetic cognition, emergent behavior, and the ethics of engineered systems.
 
-* **The Ghost in the Shell: A Metric for Synthetic Qualia** (2024)
+## Synthetic Cognition
 
-A curated bibliography is in preparation. For publication requests, please contact the institute.
+* **Schimpl, P.** (2025). *The Ghost in the Shell: A Metric for Synthetic Qualia*.
+* **ALI Team.** (2024). *Protocells as Computational Substrates*.
+
+## Artificial Ecologies
+
+* **Schimpl, P. & Mescia, C.** (2024). *The Holobiont Interface: Symbiotic Computation*.
+* **ALI Team.** (2023). *Modeling Emergent Behavior in Synthetic Biomes*.
+
+## Ethics of Engineering
+
+* **Schimpl, P.** (2024). *The Ethics of Engineered Sentience*.
+* **ALI Team.** (2022). *Governing Autonomous Synthetic Agents*.
