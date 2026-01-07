@@ -847,6 +847,151 @@ def _build_css(site: dict[str, Any]) -> str:
         .module-header {{ border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; margin-bottom: 1rem; font-weight: bold; color: var(--primary); }}
         """
 
+    elif layout_variant == "archive":
+        # Artificial Life Institute (Scientific Premium)
+        theme_overrides += """
+        /* Scientific Premium Theme */
+        :root {
+            --bg-color: #f9f8f7;       /* Warm Paper */
+            --text-main: #1a1a1a;      /* Soft Black */
+            --text-muted: #5e5e5e;     /* Grey */
+            --accent: #65141c;         /* Maroon/Oxblood */
+            --gold: #e0b15a;           /* Muted Gold */
+            --font-head: 'Cormorant Garamond', serif;
+            --font-body: 'Outfit', sans-serif;
+            --border-light: rgba(0,0,0,0.08);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: url('../img/ali_hero_generative_bio_1767665904397.png'); /* Subtle texture use if needed, or keeping clean */
+            background-image: none; /* Let's keep it clean paper */
+        }
+        
+        .archive-layout {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 240px 1fr 280px;
+            gap: 3rem;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        
+        @media (max-width: 1100px) {
+            .archive-layout { grid-template-columns: 1fr; }
+            .archive-sidebar-left, .archive-sidebar-right { display: none; } /* Mobile simplification */
+        }
+
+        /* Sidebar Styling */
+        .archive-sidebar-left {
+            border-right: 1px solid var(--border-light);
+            padding-right: 1rem;
+        }
+        
+        .archive-nav h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 0.5rem;
+            display: inline-block;
+        }
+        
+        .archive-nav ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .archive-nav li { margin-bottom: 0.8rem; }
+        .archive-nav a {
+            color: var(--text-muted);
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        .archive-nav a:hover { color: var(--accent); }
+
+        /* Main Content Styling */
+        .archive-header {
+            margin-bottom: 4rem;
+            position: relative;
+        }
+        
+        .archive-hero-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px -10px rgba(101, 20, 28, 0.15);
+        }
+
+        .archive-header h1 {
+            font-size: 4rem;
+            line-height: 1;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-weight: 400;
+        }
+        
+        .archive-header p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            font-family: var(--font-head);
+            line-height: 1.5;
+        }
+
+        /* Scientific Cards */
+        .content-block {
+            background: #fff;
+            border: 1px solid var(--border-light);
+            padding: 2.5rem;
+            border-radius: 2px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            position: relative;
+        }
+        
+        .content-block::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--gold);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .content-block:hover::before { opacity: 1; }
+        
+        .content-block h2 {
+            font-size: 1.8rem;
+            color: var(--text-main);
+            border-bottom: none;
+            margin-bottom: 1rem;
+        }
+
+        /* Right Sidebar */
+        .archive-sidebar-right {
+            border-left: 1px solid var(--border-light);
+            padding-left: 1rem;
+        }
+        
+        .archive-metadata {
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: #fff;
+            padding: 1.5rem;
+            border: 1px solid var(--border-light);
+        }
+        """
+
     elif layout_variant == "standard" and "holobiontic" in site.get("site_name", "").lower():
         theme_overrides = f"""
         /* Holobiontic / Bio Theme */
@@ -1180,7 +1325,7 @@ window.addEventListener('DOMContentLoaded', () => {
 """.lstrip()
 
 
-def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path, hero_heading: str, hero_body: str, sections_html: str, overview_html: str, page_body_html: str) -> str:
+def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, object]], current_path: Path, hero_heading: str, hero_body: str, sections_html: str, overview_html: str, page_body_html: str, hero_image_src: str = "") -> str:
     """Render archive layout with dual-sidebar structure."""
     return f"""
       <section class="archive-layout">
@@ -1197,6 +1342,7 @@ def _render_archive_layout(site: dict[str, str], pages: dict[str, dict[str, obje
         </aside>
         <main class="archive-main">
           <header class="archive-header">
+            <img src="{_escape(hero_image_src)}" alt="Generative Form" class="archive-hero-image" />
             <h1>{_escape(hero_heading)}</h1>
             {hero_body}
           </header>
@@ -1776,7 +1922,7 @@ def build_site() -> None:
 
         if slug == "":
             if layout_variant == "archive":
-                homepage_body = _render_archive_layout(site, pages, current_path, hero_heading, hero_body, sections_html, overview_html, page_body_html)
+                homepage_body = _render_archive_layout(site, pages, current_path, hero_heading, hero_body, sections_html, overview_html, page_body_html, hero_image_src)
             elif layout_variant == "linkhub":
                 homepage_body = f"""
       <section class="linkhub">
